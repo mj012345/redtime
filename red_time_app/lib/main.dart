@@ -1,6 +1,7 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
+import 'package:red_time_app/new.dart';
 // import 'screens/period_tracker_screen.dart';
 
 void main() {
@@ -15,7 +16,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Period Tracker',
       theme: ThemeData(primarySwatch: Colors.orange, fontFamily: 'Pretendard'),
-      home: const PeriodTrackerScreen(),
+      // home: const PeriodTrackerScreen(),
+      home: const FigmaCalendarPage(),
     );
   }
 }
@@ -37,7 +39,7 @@ class PeriodTrackerScreen extends StatefulWidget {
 class _PeriodTrackerScreenState extends State<PeriodTrackerScreen> {
   // 달력 상태 관리 (8가지)
   final DateTime today = DateTime.now();
-  List<DateTime?> _selectedDates = []; // selectedDay
+  List<DateTime?> _selectedDates = [DateTime.now()]; // selectedDay - 기본값: 오늘
   List<DateTime> _periodDays = [
     DateTime(2025, 11, 15),
     DateTime(2025, 11, 16),
@@ -198,6 +200,7 @@ class PeriodCalendar extends StatelessWidget {
             return CalendarDayCell(
               date: date,
               textStyle: textStyle,
+              isSelected: isSelected ?? false,
               today: today,
               selectedDates: selectedDates,
               periodDays: periodDays,
@@ -247,6 +250,7 @@ class PeriodCalendar extends StatelessWidget {
 class CalendarDayCell extends StatelessWidget {
   final DateTime date;
   final TextStyle? textStyle;
+  final bool isSelected;
   final DateTime today;
   final List<DateTime?> selectedDates;
   final List<DateTime> periodDays;
@@ -260,6 +264,7 @@ class CalendarDayCell extends StatelessWidget {
     super.key,
     required this.date,
     this.textStyle,
+    required this.isSelected,
     required this.today,
     required this.selectedDates,
     required this.periodDays,
@@ -294,7 +299,7 @@ class CalendarDayCell extends StatelessWidget {
     Color? textColor = Colors.black87;
     Color? borderColor;
 
-    // 우선순위: 실제 생리 > 실제 가임기 > 예상 생리 > 예상 가임기 > 선택 > 오늘
+    // 배경색 결정 (선택 여부와 관계없이 원래 색상 유지)
     if (isPeriod) {
       bgColor = const Color(0xFFD85A3A);
       textColor = Colors.white;
@@ -302,99 +307,110 @@ class CalendarDayCell extends StatelessWidget {
       bgColor = const Color(0xFFBFD85A);
       textColor = Colors.black87;
     } else if (isExpectedPeriod) {
-      bgColor = Colors.transparent;
-      borderColor = const Color(0xFFD85A3A).withOpacity(0.5);
-      textColor = const Color(0xFFD85A3A).withOpacity(0.7);
+      bgColor = const Color(0xFFD85A3A).withValues(alpha: 0.1);
+      textColor = Colors.black87;
     } else if (isExpectedFertile) {
-      bgColor = Colors.transparent;
-      borderColor = const Color(0xFFBFD85A).withOpacity(0.5);
-      textColor = const Color(0xFFBFD85A).withOpacity(0.7);
-    } else if (isSelectedDay) {
-      bgColor = const Color(0xFFE8E8E8);
+      bgColor = const Color(0xFFBFD85A).withValues(alpha: 0.1);
+      textColor = Colors.black87;
     } else if (isToday) {
-      bgColor = Colors.transparent;
+      bgColor = const Color(0xFFE8E8E8);
+    }
+
+    // 선택된 날짜인 경우 테두리 추가 (배경색과 함께 표시)
+    if (isSelectedDay) {
       borderColor = const Color(0xFF6B4226);
     }
 
+    // 테두리 구성
+    // 가로선: 모든 날짜 위쪽에 표시
+    const topBorder = BorderSide(color: Color(0xFFE0E0E0), width: 1);
+
+    // 선택된 날짜의 테두리 (가로선과 겹치지 않도록 내부에 표시)
+    final sideBorder = borderColor != null
+        ? BorderSide(color: borderColor, width: 2.0)
+        : BorderSide.none;
+
     return Container(
+      padding: EdgeInsets.zero, // 공백 제거
       decoration: BoxDecoration(
         color: bgColor,
-        border: borderColor != null
-            ? Border.all(color: borderColor, width: 1.5)
-            : null,
-        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          top: isSelectedDay && borderColor != null
+              ? BorderSide(color: borderColor, width: 2.0) // 선택된 날짜: 위쪽도 선택 테두리
+              : topBorder, // 일반 날짜: 가로선
+          left: sideBorder,
+          right: sideBorder,
+          bottom: sideBorder,
+        ),
+        // borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Text(
-              '${date.day}',
-              style: textStyle?.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w600,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            '${date.day}',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 16, // 모든 날짜에 동일한 폰트 크기 강제 적용
+            ),
+          ),
+          // 실제 배란일 표시
+          if (isOvulation)
+            Positioned(
+              bottom: 4,
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFC107),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-            // 실제 배란일 표시
-            if (isOvulation)
-              Positioned(
-                bottom: 4,
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFC107),
-                    shape: BoxShape.circle,
-                  ),
+          // 예상 배란일 표시
+          if (isExpectedOvulation && !isOvulation)
+            Positioned(
+              bottom: 4,
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107).withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFC107), width: 1),
                 ),
               ),
-            // 예상 배란일 표시
-            if (isExpectedOvulation && !isOvulation)
-              Positioned(
-                bottom: 4,
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFC107).withOpacity(0.5),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFFFC107),
-                      width: 1,
-                    ),
-                  ),
+            ),
+          // 가임기 텍스트 표시 (실제 가임기일 때만)
+          if (isFertile && !isOvulation && !isExpectedFertile)
+            Positioned(
+              bottom: 0,
+              child: Text(
+                '가임기',
+                style: TextStyle(fontSize: 8, color: textColor),
+              ),
+            ),
+          // 오늘 표시 (선택되지 않았을 때만)
+          if (isToday &&
+              !isSelectedDay &&
+              !isPeriod &&
+              !isFertile &&
+              !isExpectedPeriod &&
+              !isExpectedFertile)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6B4226),
+                  shape: BoxShape.circle,
                 ),
               ),
-            // 가임기 텍스트 표시 (실제 가임기일 때만)
-            if (isFertile && !isOvulation && !isExpectedFertile)
-              Positioned(
-                bottom: 0,
-                child: Text(
-                  '가임기',
-                  style: TextStyle(fontSize: 8, color: textColor),
-                ),
-              ),
-            // 오늘 표시 (선택되지 않았을 때만)
-            if (isToday &&
-                !isSelectedDay &&
-                !isPeriod &&
-                !isFertile &&
-                !isExpectedPeriod &&
-                !isExpectedFertile)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF6B4226),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
