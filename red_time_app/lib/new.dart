@@ -41,38 +41,58 @@ class _PeriodCycle {
 // [메인 상태 관리 클래스] 캘린더 화면의 상태와 로직을 관리
 // ============================================================================
 class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
-  // --------------------[상태 변수: 총 8가지 날짜 타입 관리]--------------------
-  // today: 오늘 날짜
+  // [today 오늘] 데이터 계산 - DateTime.now()로 오늘 날짜를 표시
   final DateTime today = DateTime.now();
 
-  // selectedDay: 달력에서 선택한 날짜
+  // [selectedDay 달력에서 선택한 날짜] 데이터 계산 - 캘린더 선택 상태를 보관
   DateTime? selectedDay = DateTime.now();
 
-  // currentMonth: 현재 표시 중인 달
+  // [currentMonth 현재 표시 월] 데이터 계산 - 달력 헤더/그리드에 사용
   DateTime currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
-  // 실제 생리일 기록 (여러 주기 지원)
+  // [periodDay 생리주기] 데이터 계산 - periodCycles의 일자들을 풀어서 정렬 저장
   List<DateTime> periodDays = [];
   List<_PeriodCycle> periodCycles = [];
   int? activeCycleIndex;
 
-  // 실제 가임기/배란일 (계산값)
+  // [fertileWindowDay 가임기] 데이터 계산 - 생리 주기와 luteal(14일) 기준 -4~+2일 가임기
   List<DateTime> fertileWindowDays = [];
   DateTime? ovulationDay;
 
-  // 예상 생리일 (계산값)
+  // [expectedPeriodDay 예상 생리주기] 데이터 계산 - 최근 주기 길이 평균으로 3개월치 예측
   List<DateTime> expectedPeriodDays = [];
 
-  // 예상 가임기 (계산값)
+  // [expectedFertileWindowDay 예상 가임기] 데이터 계산 - 예상 생리 시작일-14일을 중심으로 -4~+2일
   List<DateTime> expectedFertileWindowDays = [];
 
-  // 예상 배란일 (계산값)
+  // [expectedOvulationDay 예상 배란일] 데이터 계산 - 예상 생리 시작일에서 14일 전
   DateTime? expectedOvulationDay;
 
-  // 증상 기록이 있는 날짜 (예시: 11/11, 11/28)
-  final List<DateTime> symptomRecordDays = [
-    DateTime(2025, 11, 11),
-    DateTime(2025, 11, 28),
+  // [symptomRecordDays 증상 기록일] 데이터 계산 - 날짜별 선택된 증상(Map)에서 키를 날짜로 변환해 보관
+  List<DateTime> symptomRecordDays = [];
+
+  // 날짜별 증상 선택 상태 저장 (key: yyyy-MM-dd, value: 선택된 라벨 집합)
+  final Map<String, Set<String>> _symptomSelections = {};
+
+  // 증상 카테고리/칩 정의 (기본 선택 없음)
+  final List<_CategoryData> _symptomCatalog = const [
+    _CategoryData('증상', [
+      ['두통', '어깨', '허리', '생리통', '팔', '다리'],
+    ]),
+    _CategoryData('소화', [
+      ['변비', '설사', '가스/복부팽만', '메스꺼움'],
+    ]),
+    _CategoryData('컨디션', [
+      ['피로', '집중력 저하', '불면증'],
+      ['식욕', '성욕', '분비물', '질건조', '질가려움'],
+      ['피부 건조', '피부 가려움', '뾰루지'],
+    ]),
+    _CategoryData('기분', [
+      ['행복', '불안', '우울', '슬픔', '분노'],
+    ]),
+    _CategoryData('기타', [
+      ['관계', '메모'],
+    ]),
   ];
 
   @override
@@ -80,6 +100,53 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     super.initState();
     // 초기값: 오늘 날짜를 선택 상태로 설정
     selectedDay = today;
+  }
+
+  // 날짜 키 변환 (yyyy-MM-dd)
+  String _dateKey(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // 문자열 키를 DateTime으로 파싱
+  DateTime _parseDateKey(String key) {
+    final parts = key.split('-');
+    return DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+  }
+
+  // 선택된 날짜의 증상 라벨 집합 조회
+  Set<String> _selectedSymptomsFor(DateTime? day) {
+    if (day == null) return <String>{};
+    return _symptomSelections[_dateKey(day)] ?? <String>{};
+  }
+
+  // 증상 토글 후 상태/표시 날짜 갱신
+  void _toggleSymptom(String label) {
+    if (selectedDay == null) return;
+    final key = _dateKey(selectedDay!);
+    final current = {...(_symptomSelections[key] ?? <String>{})};
+    if (current.contains(label)) {
+      current.remove(label);
+    } else {
+      current.add(label);
+    }
+
+    if (current.isEmpty) {
+      _symptomSelections.remove(key);
+    } else {
+      _symptomSelections[key] = current;
+    }
+
+    _recomputeSymptomRecordDays();
+    setState(() {});
+  }
+
+  // 증상 기록이 있는 날짜 리스트 재계산
+  void _recomputeSymptomRecordDays() {
+    symptomRecordDays = _symptomSelections.keys.map(_parseDateKey).toList()
+      ..sort((a, b) => a.compareTo(b));
   }
 
   // =======================[생리 주기 관리 메서드] 생리 시작일 설정/해제=================================
@@ -121,6 +188,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
       if (cycle.end != null && cycle.end!.isBefore(cycle.start)) {
         cycle.end = cycle.start;
       }
+      _ensureDefaultEnd(idx);
       activeCycleIndex = idx;
       _recomputePeriodDays();
       return;
@@ -129,6 +197,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     // 새 주기 추가
     periodCycles.add(_PeriodCycle(sd, null));
     activeCycleIndex = periodCycles.length - 1;
+    _ensureDefaultEnd(activeCycleIndex!);
     _recomputePeriodDays();
   }
 
@@ -154,6 +223,14 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     }
 
     final cycle = periodCycles[idx];
+    // 같은 종료일을 다시 누르면 종료일 해제
+    if (cycle.end != null && _sameDay(cycle.end!, sd)) {
+      cycle.end = null;
+      activeCycleIndex = idx;
+      _recomputePeriodDays();
+      return;
+    }
+
     if (sd.isBefore(cycle.start)) {
       // 종료일이 시작일보다 앞이면 시작일을 종료일로 이동
       cycle.start = sd;
@@ -163,6 +240,15 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     }
     activeCycleIndex = idx;
     _recomputePeriodDays();
+  }
+
+  // 시작일 설정 시 기본 종료일을 start+4(총 5일)로 보정
+  void _ensureDefaultEnd(int idx) {
+    if (idx < 0 || idx >= periodCycles.length) return;
+    final cycle = periodCycles[idx];
+    if (cycle.end == null || cycle.end!.isBefore(cycle.start)) {
+      cycle.end = cycle.start.add(const Duration(days: 4));
+    }
   }
 
   // =======================[데이터 재계산 메서드] 생리 주기 변경 시 periodDays 재계산=================================
@@ -227,9 +313,9 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
         ovulationDay = cycleOvulation; // 가장 최근 배란일 유지
       }
 
-      // 가임기: 배란일 -5일 ~ 배란일 +2일 (총 8일)
-      final startWindow = cycleOvulation.subtract(const Duration(days: 5));
-      for (int i = 0; i < 8; i++) {
+      // 가임기: 배란일 -4일 ~ 배란일 +2일 (총 7일)
+      final startWindow = cycleOvulation.subtract(const Duration(days: 4));
+      for (int i = 0; i < 7; i++) {
         fertileWindowDays.add(
           DateTime(startWindow.year, startWindow.month, startWindow.day + i),
         );
@@ -274,11 +360,11 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
         expectedOvulationDay = expectedOvulation; // 첫 번째만 유지
       }
 
-      // 예상 가임기: 배란일 -5일 ~ 배란일 +2일 (총 8일)
+      // 예상 가임기: 배란일 -4일 ~ 배란일 +2일 (총 7일)
       final expectedStartWindow = expectedOvulation.subtract(
-        const Duration(days: 5),
+        const Duration(days: 4),
       );
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 7; i++) {
         expectedFertileWindowDays.add(
           DateTime(
             expectedStartWindow.year,
@@ -398,6 +484,10 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                   onSelect: (day) {
                                     setState(() {
                                       selectedDay = day;
+                                      currentMonth = DateTime(
+                                        day.year,
+                                        day.month,
+                                      );
                                     });
                                   },
                                 ),
@@ -418,7 +508,13 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                 ),
                                 const SizedBox(height: 16),
                                 const SizedBox(height: 24),
-                                const _SymptomSection(),
+                                _SymptomSection(
+                                  categories: _symptomCatalog,
+                                  selectedLabels: _selectedSymptomsFor(
+                                    selectedDay,
+                                  ),
+                                  onToggle: _toggleSymptom,
+                                ),
                                 const SizedBox(height: 24),
                               ],
                             );
@@ -550,24 +646,22 @@ class _Calendar extends StatelessWidget {
     // 요일 순서: 일요일 시작
     final weekdays = ['일', '월', '화', '수', '목', '금', '토'];
     final firstDay = DateTime(month.year, month.month, 1);
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final startWeekday = firstDay.weekday; // 1=Mon ... 7=Sun
     final startOffset = startWeekday % 7; // Sun -> 0, Mon ->1 ... Sat->6
 
-    final cells = <DateTime?>[];
-    for (int i = 0; i < startOffset; i++) {
-      cells.add(null); // 앞쪽 빈 칸
-    }
-    for (int d = 1; d <= daysInMonth; d++) {
-      cells.add(DateTime(month.year, month.month, d));
-    }
-    while (cells.length % 7 != 0) {
-      cells.add(null);
-    }
+    // 이번 달을 모두 포함하는 최소 주차만큼만 행 생성
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+    final totalCells = ((startOffset + daysInMonth + 6) ~/ 7) * 7; // 최소 주차*7
+    final startDate = firstDay.subtract(Duration(days: startOffset));
 
-    final rows = <List<DateTime?>>[];
-    for (int i = 0; i < cells.length; i += 7) {
-      rows.add(cells.sublist(i, i + 7));
+    final rows = <List<DateTime>>[];
+    for (int idx = 0; idx < totalCells; idx += 7) {
+      final week = <DateTime>[];
+      for (int d = 0; d < 7; d++) {
+        final day = startDate.add(Duration(days: idx + d));
+        week.add(DateTime(day.year, day.month, day.day));
+      }
+      rows.add(week);
     }
 
     return Column(
@@ -606,38 +700,33 @@ class _Calendar extends StatelessWidget {
                       .map(
                         (day) => Expanded(
                           child: _DayCell(
-                            day: day?.day,
-                            onTap: day == null ? null : () => onSelect(day),
-                            isPeriod:
-                                day != null && _containsDate(periodDays, day),
-                            isFertile:
-                                day != null &&
-                                _containsDate(fertileWindowDays, day),
+                            date: day,
+                            isOutsideMonth: day.month != month.month,
+                            onTap: () => onSelect(day),
+                            isPeriod: _containsDate(periodDays, day),
+                            isFertile: _containsDate(fertileWindowDays, day),
                             isOvulation:
-                                day != null &&
                                 ovulationDay != null &&
                                 _sameDay(day, ovulationDay!),
-                            isExpectedPeriod:
-                                day != null &&
-                                _containsDate(expectedPeriodDays, day),
-                            isExpectedFertile:
-                                day != null &&
-                                _containsDate(expectedFertileWindowDays, day),
-                            isToday: day != null && _sameDay(day, today),
+                            isExpectedPeriod: _containsDate(
+                              expectedPeriodDays,
+                              day,
+                            ),
+                            isExpectedFertile: _containsDate(
+                              expectedFertileWindowDays,
+                              day,
+                            ),
+                            isToday: _sameDay(day, today),
                             isSelected:
-                                day != null &&
                                 selectedDay != null &&
                                 _sameDay(day, selectedDay!),
-                            hasRecord:
-                                day != null &&
-                                _containsDate(symptomRecordDays, day),
-                            isPeriodStart:
-                                day != null && _isRangeStart(periodCycles, day),
-                            isPeriodEnd:
-                                day != null && _isRangeEnd(periodCycles, day),
-                            isFertileStart:
-                                day != null &&
-                                _isFertileWindowStart(fertileWindowDays, day),
+                            hasRecord: _containsDate(symptomRecordDays, day),
+                            isPeriodStart: _isRangeStart(periodCycles, day),
+                            isPeriodEnd: _isRangeEnd(periodCycles, day),
+                            isFertileStart: _isFertileWindowStart(
+                              fertileWindowDays,
+                              day,
+                            ),
                           ),
                         ),
                       )
@@ -731,8 +820,9 @@ class _HorizontalLine extends StatelessWidget {
 // - 오늘 날짜는 원형 배경으로 강조 표시
 // ============================================================================
 class _DayCell extends StatelessWidget {
-  final int? day;
-  final VoidCallback? onTap;
+  final DateTime date;
+  final bool isOutsideMonth;
+  final VoidCallback onTap;
   final bool isPeriod;
   final bool isFertile;
   final bool isOvulation;
@@ -746,7 +836,8 @@ class _DayCell extends StatelessWidget {
   final bool isFertileStart;
 
   const _DayCell({
-    required this.day,
+    required this.date,
+    required this.isOutsideMonth,
     required this.onTap,
     required this.isPeriod,
     required this.isFertile,
@@ -763,12 +854,10 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (day == null) {
-      return const SizedBox.shrink();
-    }
-
     Color? bgColor;
-    Color textColor = const Color(0xFF333333);
+    Color textColor = isOutsideMonth
+        ? const Color(0xFFBBBBBB)
+        : const Color(0xFF333333);
     Color? borderColor;
 
     if (isPeriod) {
@@ -836,7 +925,7 @@ class _DayCell extends StatelessWidget {
                       ],
                       // 날짜 텍스트 (모든 날짜 동일한 위치)
                       Text(
-                        '$day',
+                        '${date.day}',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w300,
@@ -1015,6 +1104,36 @@ class _TodayCard extends StatelessWidget {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  String? _periodBadgeText() {
+    if (selectedDay == null) return null;
+    final d = DateTime(selectedDay!.year, selectedDay!.month, selectedDay!.day);
+
+    // 실제 생리 구간이면 "생리 시작 n일째"
+    for (final c in periodCycles) {
+      if (c.contains(d)) {
+        final start = DateTime(c.start.year, c.start.month, c.start.day);
+        final dayIndex = d.difference(start).inDays + 1;
+        return '생리 시작 ${dayIndex}일째';
+      }
+    }
+
+    // 예상 생리 시작일까지 남은 일수 (블록의 시작일 기준)
+    if (expectedPeriodDays.isNotEmpty) {
+      final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
+      DateTime? last;
+      for (final date in sorted) {
+        final isBlockStart = last == null || date.difference(last).inDays > 1;
+        if (isBlockStart && (date.isAfter(d) || _sameDay(date, d))) {
+          final diff = date.difference(d).inDays;
+          if (diff == 0) return '생리 예정일 오늘';
+          return '생리 예정일 ${diff}일전';
+        }
+        last = date;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1042,52 +1161,63 @@ class _TodayCard extends StatelessWidget {
           Builder(
             builder: (context) {
               final probability = _calculatePregnancyProbability(selectedDay);
+              final periodBadgeText = _periodBadgeText();
 
-              if (probability == null) {
-                return const SizedBox.shrink(); // 범위 밖이면 표시하지 않음
+              if (probability == null && periodBadgeText == null) {
+                return const SizedBox.shrink(); // 표시할 정보가 없으면 숨김
               }
 
-              // 색상과 텍스트 결정
-              Color circleColor;
-              String text;
+              Color? circleColor;
+              String? text;
 
-              switch (probability) {
-                case '낮음':
-                  circleColor = const Color(0xFFC5C5C5); // 회색
-                  text = '임신 확률 낮음';
-                  break;
-                case '높음':
-                  circleColor = const Color(0xFFA7C4A0); // 녹색
-                  text = '임신 확률 높음';
-                  break;
-                default: // '보통'
-                  circleColor = const Color(0xFFFFD966); // 노란색
-                  text = '임신 확률 보통';
-                  break;
+              if (probability != null) {
+                switch (probability) {
+                  case '낮음':
+                    circleColor = const Color(0xFFC5C5C5); // 회색
+                    text = '임신 확률 낮음';
+                    break;
+                  case '높음':
+                    circleColor = const Color(0xFFA7C4A0); // 녹색
+                    text = '임신 확률 높음';
+                    break;
+                  default: // '보통'
+                    circleColor = const Color(0xFFFFD966); // 노란색
+                    text = '임신 확률 보통';
+                    break;
+                }
               }
 
               return Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: circleColor,
-                          shape: BoxShape.circle,
+                  if (periodBadgeText != null) ...[
+                    _Badge(
+                      text: periodBadgeText,
+                      bg: const Color(0xFFFFF3CD),
+                      fg: const Color(0xFFB34A4A),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (text != null && circleColor != null)
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: circleColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        text,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF9E7E74),
+                        const SizedBox(width: 6),
+                        Text(
+                          text,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF9E7E74),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               );
             },
@@ -1207,84 +1337,42 @@ class _ToggleChip extends StatelessWidget {
 }
 
 // ============================================================================
+// [데이터 클래스] 증상 카테고리 정의
+// ============================================================================
+class _CategoryData {
+  final String title;
+  final List<List<String>> groups;
+  const _CategoryData(this.title, this.groups);
+}
+
+// ============================================================================
 // [위젯 클래스] 증상 기록 섹션 (카테고리별 증상 칩들)
 // ============================================================================
 class _SymptomSection extends StatelessWidget {
-  const _SymptomSection();
+  final List<_CategoryData> categories;
+  final Set<String> selectedLabels;
+  final ValueChanged<String> onToggle;
+
+  const _SymptomSection({
+    required this.categories,
+    required this.selectedLabels,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        _Category(
-          title: '증상',
-          groups: [
-            [
-              _ChipData('두통', false),
-              _ChipData('어깨', true),
-              _ChipData('허리', false),
-              _ChipData('생리통', false),
-              _ChipData('팔', false),
-              _ChipData('다리', true),
-            ],
-          ],
-        ),
-        SizedBox(height: 12),
-        _Category(
-          title: '소화',
-          groups: [
-            [
-              _ChipData('변비', false),
-              _ChipData('설사', false),
-              _ChipData('가스/복부팽만', false),
-              _ChipData('메스꺼움', false),
-            ],
-          ],
-        ),
-        SizedBox(height: 12),
-        _Category(
-          title: '컨디션',
-          groups: [
-            [
-              _ChipData('피로', false),
-              _ChipData('집중력 저하', false),
-              _ChipData('불면증', false),
-            ],
-            [
-              _ChipData('식욕', false),
-              _ChipData('성욕', false),
-              _ChipData('분비물', false),
-              _ChipData('질건조', true),
-              _ChipData('질가려움', false),
-            ],
-            [
-              _ChipData('피부 건조', true),
-              _ChipData('피부 가려움', true),
-              _ChipData('뾰루지', false),
-            ],
-          ],
-        ),
-        SizedBox(height: 12),
-        _Category(
-          title: '기분',
-          groups: [
-            [
-              _ChipData('행복', false),
-              _ChipData('불안', false),
-              _ChipData('우울', false),
-              _ChipData('슬픔', false),
-              _ChipData('분노', false),
-            ],
-          ],
-        ),
-        SizedBox(height: 12),
-        _Category(
-          title: '기타',
-          groups: [
-            [_ChipData('관계', false), _ChipData('메모', false)],
-          ],
-        ),
+      children: [
+        for (int i = 0; i < categories.length; i++) ...[
+          _Category(
+            title: categories[i].title,
+            groups: categories[i].groups,
+            selectedLabels: selectedLabels,
+            onToggle: onToggle,
+          ),
+          if (i != categories.length - 1) const SizedBox(height: 12),
+        ],
       ],
     );
   }
@@ -1295,9 +1383,16 @@ class _SymptomSection extends StatelessWidget {
 // ============================================================================
 class _Category extends StatelessWidget {
   final String title;
-  final List<List<_ChipData>> groups;
+  final List<List<String>> groups;
+  final Set<String> selectedLabels;
+  final ValueChanged<String> onToggle;
 
-  const _Category({required this.title, required this.groups});
+  const _Category({
+    required this.title,
+    required this.groups,
+    required this.selectedLabels,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1330,7 +1425,15 @@ class _Category extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: row.map((chip) => _SymptomChip(data: chip)).toList(),
+            children: row
+                .map(
+                  (label) => _SymptomChip(
+                    label: label,
+                    selected: selectedLabels.contains(label),
+                    onTap: () => onToggle(label),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 8),
         ],
@@ -1340,49 +1443,53 @@ class _Category extends StatelessWidget {
 }
 
 // ============================================================================
-// [데이터 클래스] 증상 칩 데이터
-// ============================================================================
-class _ChipData {
-  final String label;
-  final bool selected;
-
-  const _ChipData(this.label, this.selected);
-}
-
-// ============================================================================
 // [위젯 클래스] 증상 칩 (개별 증상 표시)
 // ============================================================================
 class _SymptomChip extends StatelessWidget {
-  final _ChipData data;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _SymptomChip({required this.data});
+  const _SymptomChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final selected = data.selected;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected ? const Color(0xFFFFEBEE) : Colors.white,
-        border: Border.all(
-          color: selected ? const Color(0xFFD32F2F) : const Color(0xFFEEEEEE),
-        ),
+    final Color fillColor = selected ? const Color(0xFFFFEBEE) : Colors.white;
+    final Color borderColor = selected
+        ? const Color(0xFFD32F2F)
+        : const Color(0xFFEEEEEE);
+    final Color textColor = selected
+        ? const Color(0xFFD32F2F)
+        : const Color(0xFF8D5656);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('symptom_$label'),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Text(
-        data.label,
-        style: TextStyle(
-          fontSize: 12,
-          color: selected ? const Color(0xFFD32F2F) : const Color(0xFF8D5656),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: fillColor,
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(label, style: TextStyle(fontSize: 12, color: textColor)),
         ),
       ),
     );
