@@ -57,7 +57,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
   // [fertileWindowDay 가임기] 데이터 계산 - 생리 주기와 luteal(14일) 기준 -4~+2일 가임기
   List<DateTime> fertileWindowDays = [];
-  DateTime? ovulationDay;
+  DateTime? ovulationDay; // 최신 배란일 (단일 표시용)
+  List<DateTime> ovulationDays = []; // 모든 배란일 집합
 
   // [expectedPeriodDay 예상 생리주기] 데이터 계산 - 최근 주기 길이 평균으로 3개월치 예측
   List<DateTime> expectedPeriodDays = [];
@@ -273,6 +274,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     if (periodCycles.isEmpty) {
       fertileWindowDays = [];
       ovulationDay = null;
+      ovulationDays = [];
       expectedPeriodDays = [];
       expectedFertileWindowDays = [];
       expectedOvulationDay = null;
@@ -300,7 +302,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
     // 모든 생리 주기에 대해 가임기와 배란일 계산
     fertileWindowDays = [];
-    ovulationDay = null; // 가장 최근 배란일만 유지 (UI 호환성)
+    ovulationDay = null; // 최신 배란일 (단일 표시용)
+    ovulationDays = [];
 
     const luteal = 14;
     final targetDay = cycleLength - luteal;
@@ -309,8 +312,9 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     for (final cycle in sorted) {
       // 배란일: 각 주기 시작 + (cycleLength - 14)
       final cycleOvulation = cycle.start.add(Duration(days: targetDay));
+      ovulationDays.add(cycleOvulation);
       if (ovulationDay == null || cycleOvulation.isAfter(ovulationDay!)) {
-        ovulationDay = cycleOvulation; // 가장 최근 배란일 유지
+        ovulationDay = cycleOvulation; // 최신 배란일 갱신
       }
 
       // 가임기: 배란일 -4일 ~ 배란일 +2일 (총 7일)
@@ -324,6 +328,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
     // 중복 제거 및 정렬
     fertileWindowDays = fertileWindowDays.toSet().toList()
+      ..sort((a, b) => a.compareTo(b));
+    ovulationDays = ovulationDays.toSet().toList()
       ..sort((a, b) => a.compareTo(b));
 
     // 예상값 계산을 위한 현재 주기 정보
@@ -476,6 +482,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                   periodDays: periodDays,
                                   fertileWindowDays: fertileWindowDays,
                                   ovulationDay: ovulationDay,
+                                  ovulationDays: ovulationDays,
                                   expectedPeriodDays: expectedPeriodDays,
                                   expectedFertileWindowDays:
                                       expectedFertileWindowDays,
@@ -620,6 +627,7 @@ class _Calendar extends StatelessWidget {
   final List<DateTime> periodDays;
   final List<DateTime> fertileWindowDays;
   final DateTime? ovulationDay;
+  final List<DateTime> ovulationDays;
   final List<DateTime> expectedPeriodDays;
   final List<DateTime> expectedFertileWindowDays;
   final DateTime? expectedOvulationDay;
@@ -634,6 +642,7 @@ class _Calendar extends StatelessWidget {
     required this.periodDays,
     required this.fertileWindowDays,
     required this.ovulationDay,
+    required this.ovulationDays,
     required this.expectedPeriodDays,
     required this.expectedFertileWindowDays,
     required this.expectedOvulationDay,
@@ -705,15 +714,20 @@ class _Calendar extends StatelessWidget {
                             onTap: () => onSelect(day),
                             isPeriod: _containsDate(periodDays, day),
                             isFertile: _containsDate(fertileWindowDays, day),
-                            isOvulation:
-                                ovulationDay != null &&
-                                _sameDay(day, ovulationDay!),
+                            isOvulation: _containsDate([
+                              if (ovulationDay != null) ovulationDay!,
+                              ...ovulationDays,
+                            ], day),
                             isExpectedPeriod: _containsDate(
                               expectedPeriodDays,
                               day,
                             ),
                             isExpectedFertile: _containsDate(
                               expectedFertileWindowDays,
+                              day,
+                            ),
+                            isExpectedPeriodStart: _isExpectedPeriodStart(
+                              expectedPeriodDays,
                               day,
                             ),
                             isToday: _sameDay(day, today),
@@ -804,6 +818,25 @@ bool _isFertileWindowStart(List<DateTime> fertileWindowDays, DateTime target) {
   return false;
 }
 
+// 예상 생리 구간의 첫 시작일인지 확인
+bool _isExpectedPeriodStart(
+  List<DateTime> expectedPeriodDays,
+  DateTime target,
+) {
+  if (!_containsDate(expectedPeriodDays, target)) return false;
+  final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
+  for (int i = 0; i < sorted.length; i++) {
+    final current = sorted[i];
+    if (_sameDay(current, target)) {
+      if (i == 0) return true;
+      final prev = sorted[i - 1];
+      if (current.difference(prev).inDays > 1) return true;
+      return false;
+    }
+  }
+  return false;
+}
+
 // ============================================================================
 // [위젯 클래스] 달력 가로선
 // ============================================================================
@@ -828,6 +861,7 @@ class _DayCell extends StatelessWidget {
   final bool isOvulation;
   final bool isExpectedPeriod;
   final bool isExpectedFertile;
+  final bool isExpectedPeriodStart;
   final bool isToday;
   final bool isSelected;
   final bool hasRecord;
@@ -844,6 +878,7 @@ class _DayCell extends StatelessWidget {
     required this.isOvulation,
     required this.isExpectedPeriod,
     required this.isExpectedFertile,
+    required this.isExpectedPeriodStart,
     required this.isToday,
     required this.isSelected,
     required this.hasRecord,
@@ -854,24 +889,33 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 외부 월은 날짜만 표시 (색/마커 제외)
+    final showPeriod = !isOutsideMonth && isPeriod;
+    final showFertile = !isOutsideMonth && isFertile;
+    final showExpectedPeriod = !isOutsideMonth && isExpectedPeriod;
+    final showExpectedFertile = !isOutsideMonth && isExpectedFertile;
+    final showOvulation = !isOutsideMonth && isOvulation;
+    final showRecord = !isOutsideMonth && hasRecord;
+    final showSelected = !isOutsideMonth && isSelected;
+
     Color? bgColor;
     Color textColor = isOutsideMonth
         ? const Color(0xFFBBBBBB)
         : const Color(0xFF333333);
     Color? borderColor;
 
-    if (isPeriod) {
+    if (showPeriod) {
       bgColor = const Color(0xFFFFEBEE);
       textColor = const Color(0xFF333333);
-    } else if (isFertile) {
+    } else if (showFertile) {
       bgColor = const Color(0xFFE8F5F6);
-    } else if (isExpectedPeriod) {
+    } else if (showExpectedPeriod) {
       bgColor = const Color(0xFFFFEBEE).withValues(alpha: 0.5);
-    } else if (isExpectedFertile) {
+    } else if (showExpectedFertile) {
       bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.5);
     }
 
-    if (isSelected) {
+    if (showSelected) {
       borderColor = const Color(0xFFD32F2F);
     }
 
@@ -886,16 +930,16 @@ class _DayCell extends StatelessWidget {
             decoration: BoxDecoration(
               color: bgColor,
               border: Border(
-                top: isSelected
+                top: showSelected
                     ? BorderSide(color: borderColor!, width: 1)
                     : BorderSide(color: Colors.transparent, width: 1),
-                left: isSelected
+                left: showSelected
                     ? BorderSide(color: borderColor!, width: 1)
                     : BorderSide(color: Colors.transparent, width: 1),
-                right: isSelected
+                right: showSelected
                     ? BorderSide(color: borderColor!, width: 1)
                     : BorderSide(color: Colors.transparent, width: 1),
-                bottom: isSelected
+                bottom: showSelected
                     ? BorderSide(color: borderColor!, width: 1)
                     : BorderSide(color: Colors.transparent, width: 1),
               ),
@@ -937,7 +981,20 @@ class _DayCell extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 // 중단: 배란/가임기 텍스트/아이콘
-                _buildMiddleIndicator(textColor),
+                // 외부 월은 중단 표시 없음
+                isOutsideMonth
+                    ? const SizedBox.shrink()
+                    : _buildMiddleIndicator(
+                        textColor,
+                        isPeriod: showPeriod,
+                        isPeriodStart: isPeriodStart,
+                        isPeriodEnd: isPeriodEnd,
+                        isFertile: showFertile,
+                        isOvulation: showOvulation,
+                        isFertileStart: isFertileStart,
+                        isExpectedPeriod: showExpectedPeriod,
+                        isExpectedPeriodStart: isExpectedPeriodStart,
+                      ),
                 const SizedBox(height: 2),
                 // 하단: 아이콘 영역 (텍스트 아래 줄에 고정)
                 Padding(
@@ -946,8 +1003,8 @@ class _DayCell extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 증상 아이콘(노랑)만 표시, 없으면 자리 유지
-                      if (hasRecord)
+                      // 외부 월은 마커 숨김
+                      if (showRecord)
                         Container(
                           width: 6,
                           height: 6,
@@ -970,24 +1027,43 @@ class _DayCell extends StatelessWidget {
   }
 
   // 날짜 셀 중간 영역 표시기 (텍스트: 시작/종료/배란일/가임기)
-  Widget _buildMiddleIndicator(Color textColor) {
+  Widget _buildMiddleIndicator(
+    Color textColor, {
+    required bool isPeriod,
+    required bool isPeriodStart,
+    required bool isPeriodEnd,
+    required bool isFertile,
+    required bool isOvulation,
+    required bool isFertileStart,
+    required bool isExpectedPeriod,
+    required bool isExpectedPeriodStart,
+  }) {
     if (isPeriod && isPeriodStart) {
-      return Text('시작', style: TextStyle(fontSize: 10, color: textColor));
+      return Text(
+        '시작',
+        style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
+      );
     }
 
     if (isPeriod && isPeriodEnd) {
-      return Text('종료', style: TextStyle(fontSize: 10, color: textColor));
+      return Text(
+        '종료',
+        style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
+      );
     }
 
     if (isOvulation) {
       // 배란일 텍스트
       return Text(
         '배란일',
-        style: TextStyle(
-          fontSize: 10,
-          color: textColor,
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
+      );
+    }
+
+    if (isExpectedPeriod && isExpectedPeriodStart) {
+      return Text(
+        '생리 예정',
+        style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
       );
     }
 
@@ -995,11 +1071,7 @@ class _DayCell extends StatelessWidget {
       // 가임기 텍스트 (첫 시작일에만 표시)
       return Text(
         '가임기',
-        style: TextStyle(
-          fontSize: 10,
-          color: textColor,
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
       );
     }
 
@@ -1113,7 +1185,7 @@ class _TodayCard extends StatelessWidget {
       if (c.contains(d)) {
         final start = DateTime(c.start.year, c.start.month, c.start.day);
         final dayIndex = d.difference(start).inDays + 1;
-        return '생리 시작 ${dayIndex}일째';
+        return '생리 시작 $dayIndex일째';
       }
     }
 
@@ -1126,7 +1198,7 @@ class _TodayCard extends StatelessWidget {
         if (isBlockStart && (date.isAfter(d) || _sameDay(date, d))) {
           final diff = date.difference(d).inDays;
           if (diff == 0) return '생리 예정일 오늘';
-          return '생리 예정일 ${diff}일전';
+          return '생리 예정일 $diff일전';
         }
         last = date;
       }
@@ -1140,7 +1212,7 @@ class _TodayCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFffff),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: const Color(0xFFD32F2F).withValues(alpha: 0.2),
@@ -1510,7 +1582,7 @@ class _BottomNav extends StatelessWidget {
         border: const Border(top: BorderSide(color: Color(0xFFFFEBEE))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
