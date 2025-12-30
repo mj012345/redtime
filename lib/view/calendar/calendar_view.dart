@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_time_app/widgets/bottom_nav.dart';
 
 /// Figma 레이아웃(채널 8usim5es)을 단일 화면으로 구현한 예시입니다.
 class FigmaCalendarPage extends StatefulWidget {
@@ -77,7 +78,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
   // 증상 카테고리/칩 정의 (기본 선택 없음)
   final List<_CategoryData> _symptomCatalog = const [
-    _CategoryData('증상', [
+    _CategoryData('통증', [
       ['두통', '어깨', '허리', '생리통', '팔', '다리'],
     ]),
     _CategoryData('소화', [
@@ -458,7 +459,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                   });
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               Expanded(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -498,7 +499,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                     });
                                   },
                                 ),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 16),
                                 _TodayCard(
                                   selectedDay: selectedDay,
                                   today: today,
@@ -513,8 +514,16 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                   isStartSelected: startSel,
                                   isEndSelected: endSel,
                                 ),
-                                const SizedBox(height: 16),
                                 const SizedBox(height: 24),
+                                Text(
+                                  '증상',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF333333),
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
                                 _SymptomSection(
                                   categories: _symptomCatalog,
                                   selectedLabels: _selectedSymptomsFor(
@@ -536,7 +545,17 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
           ),
         ),
       ),
-      bottomNavigationBar: const _BottomNav(),
+      bottomNavigationBar: BottomNav(
+        current: NavTab.calendar,
+        onTap: (tab) {
+          if (tab == NavTab.calendar) return;
+          if (tab == NavTab.report) {
+            Navigator.of(context).pushReplacementNamed('/report');
+          } else if (tab == NavTab.my) {
+            Navigator.of(context).pushReplacementNamed('/my');
+          }
+        },
+      ),
     );
   }
 }
@@ -914,7 +933,6 @@ class _DayCell extends StatelessWidget {
     } else if (showExpectedFertile) {
       bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.5);
     }
-
     if (showSelected) {
       borderColor = const Color(0xFFD32F2F);
     }
@@ -947,7 +965,7 @@ class _DayCell extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
-                const SizedBox(height: 3), // 달력 가로선과 날짜 사이 간격
+                const SizedBox(height: 1), // 달력 가로선과 날짜 사이 간격
                 SizedBox(
                   height: 25, // 오늘을 표시하는 원형 배경의 높이와 동일하게 고정
                   child: Stack(
@@ -979,9 +997,6 @@ class _DayCell extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                // 중단: 배란/가임기 텍스트/아이콘
-                // 외부 월은 중단 표시 없음
                 isOutsideMonth
                     ? const SizedBox.shrink()
                     : _buildMiddleIndicator(
@@ -1038,45 +1053,42 @@ class _DayCell extends StatelessWidget {
     required bool isExpectedPeriod,
     required bool isExpectedPeriodStart,
   }) {
+    Widget? indicator;
+
     if (isPeriod && isPeriodStart) {
-      return Text(
+      indicator = const Text(
         '시작',
         style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
       );
-    }
-
-    if (isPeriod && isPeriodEnd) {
-      return Text(
+    } else if (isPeriod && isPeriodEnd) {
+      indicator = const Text(
         '종료',
         style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
       );
-    }
-
-    if (isOvulation) {
-      // 배란일 텍스트
-      return Text(
+    } else if (isOvulation) {
+      indicator = const Text(
         '배란일',
         style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
       );
-    }
-
-    if (isExpectedPeriod && isExpectedPeriodStart) {
-      return Text(
+    } else if (isExpectedPeriod && isExpectedPeriodStart) {
+      indicator = const Text(
         '생리 예정',
         style: TextStyle(fontSize: 10, color: Color(0xFFD32F2F)),
       );
-    }
-
-    if (isFertile && !isOvulation && isFertileStart) {
-      // 가임기 텍스트 (첫 시작일에만 표시)
-      return Text(
+    } else if (isFertile && !isOvulation && isFertileStart) {
+      indicator = const Text(
         '가임기',
         style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
       );
     }
 
-    // 표시할 것이 없으면 빈 영역 유지
-    return const SizedBox.shrink();
+    // 중단 영역 높이를 고정해 아이콘 위치를 일정하게 유지
+    return SizedBox(
+      height: 14,
+      child: indicator == null
+          ? const SizedBox.shrink()
+          : Center(child: indicator),
+    );
   }
 }
 
@@ -1180,7 +1192,7 @@ class _TodayCard extends StatelessWidget {
     if (selectedDay == null) return null;
     final d = DateTime(selectedDay!.year, selectedDay!.month, selectedDay!.day);
 
-    // 실제 생리 구간이면 "생리 시작 n일째"
+    // [실제 생리 구간] "생리 시작 n일째"
     for (final c in periodCycles) {
       if (c.contains(d)) {
         final start = DateTime(c.start.year, c.start.month, c.start.day);
@@ -1189,20 +1201,111 @@ class _TodayCard extends StatelessWidget {
       }
     }
 
-    // 예상 생리 시작일까지 남은 일수 (블록의 시작일 기준)
+    // [예상 생리 구간] 전 구간 "생일 예정일" 표시
     if (expectedPeriodDays.isNotEmpty) {
       final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
-      DateTime? last;
+      DateTime? prev;
+      late DateTime start;
+      late DateTime end;
       for (final date in sorted) {
-        final isBlockStart = last == null || date.difference(last).inDays > 1;
-        if (isBlockStart && (date.isAfter(d) || _sameDay(date, d))) {
-          final diff = date.difference(d).inDays;
-          if (diff == 0) return '생리 예정일 오늘';
-          return '생리 예정일 $diff일전';
+        final isStart = prev == null || date.difference(prev).inDays > 1;
+        if (isStart) {
+          start = date;
+          end = date;
+        } else {
+          end = date;
         }
-        last = date;
+        // start/end는 항상 세팅됨
+        if (!d.isBefore(start) && !d.isAfter(end)) {
+          return '생일 예정일';
+        }
+        prev = date;
       }
     }
+
+    // 준비: 가임기/예정일 데이터를 정렬
+    final fertileAll = [...fertileWindowDays, ...expectedFertileWindowDays]
+      ..sort((a, b) => a.compareTo(b));
+
+    // 블록 탐색용 변수
+    DateTime? last;
+    late DateTime blockStart;
+    late DateTime blockEnd;
+    bool hasBlock = false;
+    DateTime? nextFertileStart;
+    DateTime? lastFertileEndBeforeD;
+
+    // [가임기 구간] "가임기 n일째" + 다음 가임기 시작 계산
+    for (final day in fertileAll) {
+      final isStart = last == null || day.difference(last).inDays > 1;
+      if (isStart) {
+        blockStart = day;
+        blockEnd = day;
+        hasBlock = true;
+      } else {
+        blockEnd = day;
+      }
+
+      if (!hasBlock) {
+        last = day;
+        continue;
+      }
+
+      // 블록 정보 (null 아님)
+      final start = blockStart;
+      final end = blockEnd;
+
+      final inBlock = !d.isBefore(start) && !d.isAfter(end);
+      if (inBlock) {
+        final dayIndex = d.difference(start).inDays + 1;
+        return '가임기 $dayIndex일째'; // 가임기 동안
+      }
+      // 가임기 이전: 가장 가까운 다음 가임기 시작 기록
+      if (nextFertileStart == null && d.isBefore(start)) {
+        nextFertileStart = start;
+      }
+      // 가임기 이후: 마지막 가임기 종료 기록
+      if (d.isAfter(end)) {
+        lastFertileEndBeforeD = end;
+      }
+      last = day;
+    }
+
+    // 다음 예상 생리 시작 블록 찾기
+    DateTime? nextExpectedStart;
+    if (expectedPeriodDays.isNotEmpty) {
+      final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
+      DateTime? prev;
+      for (final date in sorted) {
+        final isStart = prev == null || date.difference(prev).inDays > 1;
+        if (isStart && (date.isAfter(d) || _sameDay(date, d))) {
+          nextExpectedStart = date;
+          break;
+        }
+        prev = date;
+      }
+    }
+
+    // [가임기 이후 ~ 생일 예정일 전] "생리 예정일 n일전"
+    if (nextExpectedStart != null && lastFertileEndBeforeD != null) {
+      final diff = nextExpectedStart.difference(d).inDays;
+      if (!d.isBefore(lastFertileEndBeforeD) && diff == 0) {
+        return '생일 예정일';
+      }
+      if (!d.isBefore(lastFertileEndBeforeD) && diff > 0) {
+        return '생리 예정일 $diff일전';
+      }
+    }
+
+    // [가임기 전] 다음 가임기 시작 전일까지: "가임기 n일전"
+    if (nextFertileStart != null) {
+      // 만약 예정 생리일이 더 가깝다면, 그 전에 처리되므로 여기선 단순 비교
+      final diff = nextFertileStart.difference(d).inDays;
+      if (diff > 0) {
+        return '가임기 $diff일전';
+      }
+    }
+
     return null;
   }
 
@@ -1226,7 +1329,7 @@ class _TodayCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF333333),
+              color: Color(0xFFD32F2F),
             ),
           ),
           const SizedBox(height: 10),
@@ -1337,7 +1440,7 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: bg,
+        color: const Color(0xFFFEE1E1),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(text, style: TextStyle(fontSize: 14, color: fg)),
@@ -1366,7 +1469,7 @@ class _ToggleChip extends StatelessWidget {
     final bool isSelected = selected;
     final Color fillColor = isSelected
         ? const Color(0xFFD32F2F)
-        : const Color(0xFFFFEBEE);
+        : const Color(0xFFFFFDFC);
     final Color borderColor = isSelected
         ? const Color(0xFFD32F2F)
         : const Color(0xFFD32F2F).withValues(alpha: 0.3);
@@ -1564,99 +1667,6 @@ class _SymptomChip extends StatelessWidget {
           child: Text(label, style: TextStyle(fontSize: 12, color: textColor)),
         ),
       ),
-    );
-  }
-}
-
-// ============================================================================
-// [위젯 클래스] 하단 네비게이션 바
-// ============================================================================
-class _BottomNav extends StatelessWidget {
-  const _BottomNav();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFDFC),
-        border: const Border(top: BorderSide(color: Color(0xFFFFEBEE))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _NavItem(icon: Icons.home, label: '홈', selected: true),
-              _NavAdd(),
-              _NavItem(icon: Icons.insights, label: '리포트', selected: false),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// [위젯 클래스] 네비게이션 아이템 (홈, 리포트)
-// ============================================================================
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFFD32F2F) : const Color(0xFF8D5656);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ============================================================================
-// [위젯 클래스] 네비게이션 추가 버튼 (가운데 원형 버튼)
-// ============================================================================
-class _NavAdd extends StatelessWidget {
-  const _NavAdd();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: const Color(0xFFD32F2F),
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFFFEBEE)),
-      ),
-      child: const Icon(Icons.event_note, color: Colors.white, size: 24),
     );
   }
 }
