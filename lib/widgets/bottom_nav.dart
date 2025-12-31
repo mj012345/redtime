@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:red_time_app/theme/app_colors.dart';
+import 'package:red_time_app/theme/app_text_styles.dart';
 
 enum NavTab { calendar, report, my }
 
@@ -12,11 +14,11 @@ class BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFDFC),
-        border: const Border(top: BorderSide(color: Color(0xFFFFEBEE))),
+        color: AppColors.background,
+        border: const Border(top: BorderSide(color: AppColors.primaryLight)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.shadowLight,
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -69,7 +71,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFFD32F2F) : const Color(0xFFAAAAAA);
+    final color = selected ? AppColors.primary : AppColors.textDisabled;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -80,7 +82,7 @@ class _NavItem extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
+            style: AppTextStyles.caption.copyWith(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: color,
