@@ -114,7 +114,7 @@ class AuthService {
         updatedAt: DateTime.now(),
       );
 
-      await _saveUserToFirestore(userModel);
+      await saveUserToFirestore(userModel);
 
       return userModel;
     } catch (e) {
@@ -124,25 +124,36 @@ class AuthService {
   }
 
   /// Firestore에 사용자 정보 저장 (없으면 생성, 있으면 업데이트)
-  Future<void> _saveUserToFirestore(UserModel userModel) async {
+  Future<void> saveUserToFirestore(UserModel userModel) async {
     if (_firestore == null) {
       print('Firestore가 초기화되지 않았습니다.');
       return;
     }
 
-    final userRef = _firestore!.collection('users').doc(userModel.uid);
+    try {
+      final userRef = _firestore!.collection('users').doc(userModel.uid);
+      print('💾 [AuthService] Firestore 저장 시도 - 경로: users/${userModel.uid}');
 
-    final docSnapshot = await userRef.get();
-    if (docSnapshot.exists) {
-      // 기존 사용자: updatedAt만 업데이트
-      await userRef.update({
-        'displayName': userModel.displayName,
-        'photoURL': userModel.photoURL,
-        'updatedAt': userModel.updatedAt.toIso8601String(),
-      });
-    } else {
-      // 신규 사용자: 전체 정보 저장
-      await userRef.set(userModel.toMap());
+      final docSnapshot = await userRef.get();
+      if (docSnapshot.exists) {
+        // 기존 사용자: updatedAt만 업데이트
+        print('💾 [AuthService] 기존 사용자 정보 업데이트');
+        await userRef.update({
+          'displayName': userModel.displayName,
+          'photoURL': userModel.photoURL,
+          'updatedAt': userModel.updatedAt.toIso8601String(),
+        });
+        print('✅ [AuthService] 사용자 정보 업데이트 완료');
+      } else {
+        // 신규 사용자: 전체 정보 저장
+        print('💾 [AuthService] 신규 사용자 정보 저장');
+        await userRef.set(userModel.toMap());
+        print('✅ [AuthService] 사용자 정보 저장 완료');
+      }
+    } catch (e, stackTrace) {
+      print('❌ [AuthService] Firestore 저장 오류: $e');
+      print('❌ [AuthService] Stack trace: $stackTrace');
+      rethrow;
     }
   }
 
@@ -154,14 +165,18 @@ class AuthService {
         return null;
       }
 
+      print('📖 [AuthService] Firestore에서 사용자 정보 가져오기 시도 - 경로: users/$uid');
       final docSnapshot = await _firestore!.collection('users').doc(uid).get();
       if (docSnapshot.exists) {
+        print('✅ [AuthService] 사용자 정보 가져오기 성공');
         return UserModel.fromMap(docSnapshot.data()!);
       }
+      print('ℹ️ [AuthService] 사용자 정보가 Firestore에 없음');
       return null;
-    } catch (e) {
-      print('사용자 정보 가져오기 오류: $e');
-      return null;
+    } catch (e, stackTrace) {
+      print('❌ [AuthService] 사용자 정보 가져오기 오류: $e');
+      print('❌ [AuthService] Stack trace: $stackTrace');
+      rethrow;
     }
   }
 

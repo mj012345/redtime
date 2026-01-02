@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
@@ -10,35 +11,12 @@ import 'widgets/today_card.dart';
 import 'widgets/symptom_section.dart';
 
 /// Figma 레이아웃(채널 8usim5es)을 단일 화면으로 구현한 예시입니다.
-class FigmaCalendarPage extends StatefulWidget {
+class FigmaCalendarPage extends StatelessWidget {
   const FigmaCalendarPage({super.key});
 
   @override
-  State<FigmaCalendarPage> createState() => _FigmaCalendarPageState();
-}
-
-class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
-  late final CalendarViewModel vm;
-
-  @override
-  void initState() {
-    super.initState();
-    vm = CalendarViewModel()..addListener(_onVmChanged);
-  }
-
-  void _onVmChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    vm.removeListener(_onVmChanged);
-    vm.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final vm = Provider.of<CalendarViewModel>(context, listen: true);
     final startSel = vm.isSelectedDayStart();
     final endSel = !startSel && vm.isSelectedDayEnd();
 

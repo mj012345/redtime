@@ -6,17 +6,41 @@ import 'package:red_time_app/repositories/symptom_repository.dart';
 import 'package:red_time_app/services/calendar_service.dart';
 
 class CalendarViewModel extends ChangeNotifier {
+  final String? userId; // 사용자 ID 저장 (Repository 타입 확인용)
+
   CalendarViewModel({
     PeriodRepository? periodRepository,
     SymptomRepository? symptomRepository,
     CalendarService? calendarService,
   }) : _periodRepo = periodRepository ?? InMemoryPeriodRepository(),
        _symptomRepo = symptomRepository ?? InMemorySymptomRepository(),
-       _calendarService = calendarService ?? const CalendarService() {
-    _symptomSelections = _symptomRepo.loadSelections();
-    periodCycles = _periodRepo.load();
+       _calendarService = calendarService ?? const CalendarService(),
+       userId = (periodRepository is FirebasePeriodRepository)
+           ? (periodRepository as FirebasePeriodRepository).userId
+           : null {
+    _initialize();
+  }
+
+  /// 비동기 초기화 (Firebase Repository 사용 시)
+  Future<void> _initialize() async {
+    // Firebase Repository인 경우 비동기 로드, 아니면 동기 로드
+    if (_symptomRepo is FirebaseSymptomRepository) {
+      _symptomSelections = await (_symptomRepo as FirebaseSymptomRepository)
+          .loadAsync();
+    } else {
+      _symptomSelections = _symptomRepo.loadSelections();
+    }
+
+    if (_periodRepo is FirebasePeriodRepository) {
+      periodCycles = await (_periodRepo as FirebasePeriodRepository)
+          .loadAsync();
+    } else {
+      periodCycles = _periodRepo.load();
+    }
+
     _recomputeSymptomRecordDays();
     _recomputePeriodDays();
+    notifyListeners();
   }
 
   // 기본 날짜 상태
@@ -141,7 +165,13 @@ class CalendarViewModel extends ChangeNotifier {
 
   // 생리 시작/종료
   void setPeriodStart() {
-    if (selectedDay == null) return;
+    if (selectedDay == null) {
+      print('⚠️ [CalendarViewModel] setPeriodStart: selectedDay가 null입니다.');
+      return;
+    }
+    print(
+      '🔴 [CalendarViewModel] setPeriodStart() 호출됨 - 선택일: ${selectedDay!.toIso8601String()}',
+    );
     final sd = DateTime(
       selectedDay!.year,
       selectedDay!.month,
@@ -192,7 +222,13 @@ class CalendarViewModel extends ChangeNotifier {
   }
 
   void setPeriodEnd() {
-    if (selectedDay == null) return;
+    if (selectedDay == null) {
+      print('⚠️ [CalendarViewModel] setPeriodEnd: selectedDay가 null입니다.');
+      return;
+    }
+    print(
+      '🔴 [CalendarViewModel] setPeriodEnd() 호출됨 - 선택일: ${selectedDay!.toIso8601String()}',
+    );
     final sd = DateTime(
       selectedDay!.year,
       selectedDay!.month,
@@ -234,6 +270,9 @@ class CalendarViewModel extends ChangeNotifier {
       _calendarService.ensureDefaultEnd(periodCycles, idx);
 
   void _recomputePeriodDays() {
+    print(
+      '🔄 [CalendarViewModel] _recomputePeriodDays() 호출됨 - 주기 개수: ${periodCycles.length}',
+    );
     periodDays = _calendarService.computePeriodDays(periodCycles);
     final derived = _calendarService.computeDerivedFertility(
       periodCycles: periodCycles,
@@ -244,6 +283,12 @@ class CalendarViewModel extends ChangeNotifier {
     expectedPeriodDays = derived.expectedPeriodDays;
     expectedFertileWindowDays = derived.expectedFertileWindowDays;
     expectedOvulationDay = derived.expectedOvulationDay;
+
+    // 생리 주기 변경 시 Firebase에 저장
+    print('💾 [CalendarViewModel] Firebase에 생리 주기 저장 시작...');
+    print('💾 [CalendarViewModel] Repository 타입: ${_periodRepo.runtimeType}');
+    _periodRepo.save(periodCycles);
+
     notifyListeners();
   }
 
@@ -334,5 +379,7 @@ class CalendarViewModel extends ChangeNotifier {
     return false;
   }
 
-  void _persistSymptoms() => _symptomRepo.saveSelections(_symptomSelections);
+  void _persistSymptoms() {
+    _symptomRepo.saveSelections(_symptomSelections);
+  }
 }

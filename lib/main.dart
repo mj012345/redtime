@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:red_time_app/repositories/period_repository.dart';
+import 'package:red_time_app/repositories/symptom_repository.dart';
 import 'package:red_time_app/router/no_transition.dart';
 import 'package:red_time_app/services/firebase_service.dart';
 import 'package:red_time_app/theme/app_colors.dart';
@@ -33,7 +35,42 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
-        ChangeNotifierProvider(create: (_) => CalendarViewModel()),
+        // 사용자 ID 기반으로 CalendarViewModel 생성
+        ChangeNotifierProxyProvider<AuthViewModel, CalendarViewModel>(
+          create: (_) => CalendarViewModel(), // 초기 생성
+          update: (context, authVm, previous) {
+            final userId = authVm.currentUser?.uid;
+            print('🔄 [MyApp] CalendarViewModel 업데이트 - 사용자 ID: $userId');
+
+            // 이전 인스턴스가 있고 사용자 ID가 같으면 재사용
+            if (previous != null && previous.userId == userId) {
+              print('♻️ [MyApp] 기존 CalendarViewModel 재사용 (같은 사용자: $userId)');
+              return previous;
+            }
+
+            if (userId != null) {
+              // Firebase Repository 사용
+              print(
+                '✅ [MyApp] Firebase Repository로 CalendarViewModel 생성 - 사용자 ID: $userId',
+              );
+              final periodRepo = FirebasePeriodRepository(userId);
+              final symptomRepo = FirebaseSymptomRepository(userId);
+
+              return CalendarViewModel(
+                periodRepository: periodRepo,
+                symptomRepository: symptomRepo,
+              );
+            } else {
+              // 로그인 안 된 경우 메모리 Repository 사용
+              print('⚠️ [MyApp] InMemory Repository로 CalendarViewModel 생성');
+              // 이전 인스턴스가 InMemory였으면 재사용
+              if (previous != null && previous.userId == null) {
+                return previous;
+              }
+              return CalendarViewModel();
+            }
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Period Tracker',
@@ -73,42 +110,124 @@ class MyApp extends StatelessWidget {
 }
 
 /// 로그인 상태에 따라 화면 전환
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isValidating = true;
+  bool _isValidUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _validateUser();
+  }
+
+  /// 사용자 유효성 검증
+  Future<void> _validateUser() async {
     // Firebase 초기화 확인
     if (!FirebaseService.checkInitialized()) {
-      // Firebase 초기화 실패 시 로그인 화면 표시
-      // (iOS의 경우 GoogleService-Info.plist가 필요할 수 있음)
-      return const LoginView();
+      setState(() {
+        _isValidating = false;
+        _isValidUser = false;
+      });
+      return;
     }
 
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        print('👤 [AuthWrapper] 현재 로그인된 사용자 ID: ${user.uid}');
+        print('👤 [AuthWrapper] 이메일: ${user.email}');
+        print('👤 [AuthWrapper] 이름: ${user.displayName}');
+        print('🔍 [AuthWrapper] 사용자 유효성 검증 시작...');
+
+        try {
+          // 사용자 정보 갱신 (Firebase에서 삭제되었는지 확인)
+          await user.reload();
+          print('✅ [AuthWrapper] 사용자 정보 갱신 완료');
+
+          // 갱신된 사용자 정보 가져오기
+          final updatedUser = FirebaseAuth.instance.currentUser;
+          if (updatedUser == null) {
+            print('⚠️ [AuthWrapper] 사용자가 삭제되었습니다. 로그아웃 처리합니다.');
+            await FirebaseAuth.instance.signOut();
+            setState(() {
+              _isValidating = false;
+              _isValidUser = false;
+            });
+            return;
+          }
+
+          // 토큰 유효성 확인
+          try {
+            await updatedUser.getIdToken(true); // 강제 갱신
+            print('✅ [AuthWrapper] 사용자 토큰 유효성 확인 완료: ${updatedUser.uid}');
+            setState(() {
+              _isValidating = false;
+              _isValidUser = true;
+            });
+          } catch (e) {
+            print('❌ [AuthWrapper] 토큰 유효성 확인 실패: $e');
+            print('⚠️ [AuthWrapper] 사용자가 유효하지 않습니다. 로그아웃 처리합니다.');
+            await FirebaseAuth.instance.signOut();
+            setState(() {
+              _isValidating = false;
+              _isValidUser = false;
+            });
+          }
+        } catch (e, stackTrace) {
+          print('❌ [AuthWrapper] 사용자 유효성 검증 실패: $e');
+          print('❌ [AuthWrapper] Stack trace: $stackTrace');
+          // 에러 발생 시 로그아웃 처리
+          try {
+            await FirebaseAuth.instance.signOut();
+          } catch (_) {}
+          setState(() {
+            _isValidating = false;
+            _isValidUser = false;
+          });
+        }
+      } else {
+        print('👤 [AuthWrapper] 로그인된 사용자 없음');
+        setState(() {
+          _isValidating = false;
+          _isValidUser = false;
+        });
+      }
+    } catch (e) {
+      print('❌ [AuthWrapper] Firebase 인스턴스 접근 실패: $e');
+      setState(() {
+        _isValidating = false;
+        _isValidUser = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 검증 중
+    if (_isValidating) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // 검증 완료 후 화면 전환
+    if (_isValidUser) {
       return StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          // 로딩 중
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          // 로그인 상태 확인
           if (snapshot.hasData && snapshot.data != null) {
-            // 로그인됨: 달력 화면으로
             return const FigmaCalendarPage();
           } else {
-            // 로그인 안됨: 로그인 화면으로
             return const LoginView();
           }
         },
       );
-    } catch (e) {
-      // Firebase 인스턴스 접근 실패 시 로그인 화면 표시
-      print('FirebaseAuth 인스턴스 접근 실패: $e');
+    } else {
       return const LoginView();
     }
   }
