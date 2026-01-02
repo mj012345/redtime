@@ -42,6 +42,15 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     final startSel = vm.isSelectedDayStart();
     final endSel = !startSel && vm.isSelectedDayEnd();
 
+    // 선택된 날짜가 오늘 이후인지 확인 (날짜만 비교)
+    final isFutureDate =
+        vm.selectedDay != null &&
+        DateTime(
+          vm.selectedDay!.year,
+          vm.selectedDay!.month,
+          vm.selectedDay!.day,
+        ).isAfter(DateTime(vm.today.year, vm.today.month, vm.today.day));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -82,37 +91,39 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                           symptomRecordDays: vm.symptomRecordDays,
                           onSelect: vm.selectDay,
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-                        TodayCard(
-                          selectedDay: vm.selectedDay,
-                          today: vm.today,
-                          periodCycles: vm.periodCycles,
-                          periodDays: vm.periodDays,
-                          expectedPeriodDays: vm.expectedPeriodDays,
-                          fertileWindowDays: vm.fertileWindowDays,
-                          expectedFertileWindowDays:
-                              vm.expectedFertileWindowDays,
-                          onPeriodStart: vm.setPeriodStart,
-                          onPeriodEnd: vm.setPeriodEnd,
-                          isStartSelected: startSel,
-                          isEndSelected: endSel,
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          '증상',
-                          style: AppTextStyles.title.copyWith(
-                            fontSize: 16,
-                            color: AppColors.textPrimary,
+                        if (!isFutureDate) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          TodayCard(
+                            selectedDay: vm.selectedDay,
+                            today: vm.today,
+                            periodCycles: vm.periodCycles,
+                            periodDays: vm.periodDays,
+                            expectedPeriodDays: vm.expectedPeriodDays,
+                            fertileWindowDays: vm.fertileWindowDays,
+                            expectedFertileWindowDays:
+                                vm.expectedFertileWindowDays,
+                            onPeriodStart: vm.setPeriodStart,
+                            onPeriodEnd: vm.setPeriodEnd,
+                            isStartSelected: startSel,
+                            isEndSelected: endSel,
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SymptomSection(
-                          categories: vm.symptomCatalog,
-                          selectedLabels: vm.selectedSymptomsFor(
-                            vm.selectedDay,
+                          const SizedBox(height: AppSpacing.xl),
+                          Text(
+                            '증상',
+                            style: AppTextStyles.title.copyWith(
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                          onToggle: vm.toggleSymptom,
-                        ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SymptomSection(
+                            categories: vm.symptomCatalog,
+                            selectedLabels: vm.selectedSymptomsFor(
+                              vm.selectedDay,
+                            ),
+                            onToggle: vm.toggleSymptom,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.xl),
                       ],
                     ),

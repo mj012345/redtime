@@ -122,6 +122,7 @@ class CalendarGrid extends StatelessWidget {
                               fertileWindowDays,
                               day,
                             ),
+                            today: today,
                           ),
                         ),
                       )

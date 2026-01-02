@@ -17,6 +17,7 @@ class DayCell extends StatelessWidget {
   final bool isPeriodStart;
   final bool isPeriodEnd;
   final bool isFertileStart;
+  final DateTime? today;
 
   const DayCell({
     super.key,
@@ -35,6 +36,7 @@ class DayCell extends StatelessWidget {
     required this.isPeriodStart,
     required this.isPeriodEnd,
     required this.isFertileStart,
+    this.today,
   });
 
   @override
@@ -48,8 +50,21 @@ class DayCell extends StatelessWidget {
     final showSelected = !isOutsideMonth && isSelected;
 
     Color? bgColor;
+
+    // 오늘 이후 날짜인지 확인
+    final isFutureDate =
+        today != null &&
+        !isOutsideMonth &&
+        DateTime(
+          date.year,
+          date.month,
+          date.day,
+        ).isAfter(DateTime(today!.year, today!.month, today!.day));
+
     Color textColor = isOutsideMonth
-        ? AppColors.textDisabled
+        ? AppColors.textDisabled.withValues(alpha: 0.5)
+        : isFutureDate
+        ? AppColors.textPrimary.withValues(alpha: 0.7)
         : AppColors.textPrimary;
     Color? borderColor;
 
