@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "662879661830",
+    "project_id": "redtime-app-51f6a",
+    "storage_bucket": "redtime-app-51f6a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662879661830:android:311b6f584a5ab4034d7887",
+        "android_client_info": {
+          "package_name": "com.example.red_time_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "662879661830-mqqathnr9l0qkndjj58id3to0fnsp5hv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuqEebc0kP8fngr1oC2DgHPlUdbDRV-Wo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "662879661830-mqqathnr9l0qkndjj58id3to0fnsp5hv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

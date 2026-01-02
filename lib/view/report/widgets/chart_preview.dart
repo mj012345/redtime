@@ -113,7 +113,7 @@ class _LineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 그리드 라인 (수평 4줄)
     final gridPaint = Paint()
-      ..color = AppColors.primaryLight.withOpacity(0.6)
+      ..color = AppColors.primaryLight.withValues(alpha: 0.6)
       ..strokeWidth = 1;
     for (int i = 0; i < 4; i++) {
       final dy = topPadding + chartHeight * i / 3;

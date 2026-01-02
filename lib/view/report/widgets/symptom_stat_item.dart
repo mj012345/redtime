@@ -24,7 +24,7 @@ class SymptomStatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final barBg = AppColors.primaryLight.withOpacity(0.5);
+    final barBg = AppColors.primaryLight.withValues(alpha: 0.5);
     final barWidthRatio = data.ratio.clamp(0, 1).toDouble();
 
     return Column(
@@ -88,4 +88,3 @@ class SymptomStatItem extends StatelessWidget {
     );
   }
 }
-
