@@ -7,11 +7,7 @@ class SummaryCard extends StatelessWidget {
   final String label;
   final String value;
 
-  const SummaryCard({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const SummaryCard({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -27,19 +23,19 @@ class SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD9D9D9),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
+              // Container(
+              //   width: 20,
+              //   height: 20,
+              //   decoration: const BoxDecoration(
+              //     color: Color(0xFFD9D9D9),
+              //     shape: BoxShape.circle,
+              //   ),
+              // ),
+              // const SizedBox(width: AppSpacing.sm),
               Text(
                 label,
                 style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textDisabled,
+                  color: AppColors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -59,4 +55,3 @@ class SummaryCard extends StatelessWidget {
     );
   }
 }
-

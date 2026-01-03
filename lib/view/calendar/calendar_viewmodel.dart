@@ -16,7 +16,7 @@ class CalendarViewModel extends ChangeNotifier {
        _symptomRepo = symptomRepository ?? InMemorySymptomRepository(),
        _calendarService = calendarService ?? const CalendarService(),
        userId = (periodRepository is FirebasePeriodRepository)
-           ? (periodRepository as FirebasePeriodRepository).userId
+           ? periodRepository.userId
            : null {
     _initialize();
   }
@@ -25,15 +25,13 @@ class CalendarViewModel extends ChangeNotifier {
   Future<void> _initialize() async {
     // Firebase Repository인 경우 비동기 로드, 아니면 동기 로드
     if (_symptomRepo is FirebaseSymptomRepository) {
-      _symptomSelections = await (_symptomRepo as FirebaseSymptomRepository)
-          .loadAsync();
+      _symptomSelections = await (_symptomRepo).loadAsync();
     } else {
       _symptomSelections = _symptomRepo.loadSelections();
     }
 
     if (_periodRepo is FirebasePeriodRepository) {
-      periodCycles = await (_periodRepo as FirebasePeriodRepository)
-          .loadAsync();
+      periodCycles = await (_periodRepo).loadAsync();
     } else {
       periodCycles = _periodRepo.load();
     }
