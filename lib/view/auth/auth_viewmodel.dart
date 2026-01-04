@@ -28,6 +28,10 @@ class AuthViewModel extends ChangeNotifier {
               notifyListeners();
             })
             .catchError((e) {
+              // 에러 로깅 (디버깅용)
+              debugPrint('authStateChanges 리스너 에러: $e');
+              // 에러가 발생해도 로그아웃하지 않고 현재 상태 유지
+              // (로그인은 성공했지만 추가 정보 로드 실패인 경우)
               notifyListeners();
             });
       } else {
@@ -74,7 +78,7 @@ class AuthViewModel extends ChangeNotifier {
         return;
       }
 
-      // Firestore에서 사용자 정보 확인 (권한 오류 발생 시 로그인 실패)
+      // Firestore에서 사용자 정보 확인
       try {
         final userModel = await _authService.getUserFromFirestore(
           updatedUser.uid,
@@ -92,23 +96,46 @@ class AuthViewModel extends ChangeNotifier {
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
-          // Firestore에 저장 시도 (권한 오류 발생 시 예외 발생)
-          await _authService.saveUserToFirestore(newUserModel);
-          _userModel = newUserModel;
+          // Firestore에 저장 시도
+          try {
+            await _authService.saveUserToFirestore(newUserModel);
+            _userModel = newUserModel;
+          } catch (saveError) {
+            // 저장 실패해도 기본 정보는 설정 (나중에 재시도 가능)
+            debugPrint('Firestore 사용자 정보 저장 실패: $saveError');
+            _userModel = newUserModel;
+          }
         } else {
           _userModel = userModel;
         }
       } catch (e) {
-        // Firestore 권한 오류 발생 시 로그인 실패
-        await signOut();
-        return;
+        // Firestore 조회 실패 시에도 기본 사용자 정보는 유지
+        debugPrint('Firestore 사용자 정보 조회 실패: $e');
+        // 기본 UserModel 생성
+        _userModel = UserModel(
+          uid: updatedUser.uid,
+          email: updatedUser.email ?? '',
+          displayName: updatedUser.displayName,
+          photoURL: updatedUser.photoURL,
+          birthDate: null,
+          gender: null,
+          phoneNumber: null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
       }
 
       _currentUser = updatedUser;
       notifyListeners();
     } catch (e) {
-      // 에러 발생 시 로그아웃 처리
-      await signOut();
+      // 심각한 에러(토큰 무효 등)만 로그아웃
+      debugPrint('사용자 검증 중 심각한 에러: $e');
+      // 토큰 관련 에러가 아닌 경우 로그아웃하지 않음
+      if (e.toString().contains('token') ||
+          e.toString().contains('authentication') ||
+          e.toString().contains('unauthorized')) {
+        await signOut();
+      }
     }
   }
 
@@ -132,20 +159,40 @@ class AuthViewModel extends ChangeNotifier {
         return false;
       }
     } catch (e) {
+      // 에러 로깅 (디버깅용)
+      debugPrint('로그인 에러: $e');
+      debugPrint('에러 타입: ${e.runtimeType}');
+
       // 에러 메시지 상세화
       String errorMsg = '로그인 실패';
-      if (e.toString().contains('network_error') ||
-          e.toString().contains('network')) {
+      final errorString = e.toString().toLowerCase();
+
+      if (errorString.contains('network_error') ||
+          errorString.contains('network') ||
+          errorString.contains('socket') ||
+          errorString.contains('connection')) {
         errorMsg = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-      } else if (e.toString().contains('sign_in_canceled') ||
-          e.toString().contains('canceled')) {
+      } else if (errorString.contains('sign_in_canceled') ||
+          errorString.contains('canceled') ||
+          errorString.contains('cancelled')) {
         errorMsg = '로그인이 취소되었습니다.';
-      } else if (e.toString().contains('sign_in_failed') ||
-          e.toString().contains('authentication')) {
+        // 취소는 에러가 아니므로 에러 메시지 없이 반환
+        _errorMessage = null;
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      } else if (errorString.contains('sign_in_failed') ||
+          errorString.contains('authentication') ||
+          errorString.contains('auth') ||
+          errorString.contains('credential') ||
+          errorString.contains('invalid')) {
         errorMsg = '인증에 실패했습니다. 다시 시도해주세요.';
-      } else if (e.toString().contains('firebase')) {
+      } else if (errorString.contains('firebase')) {
         errorMsg = 'Firebase 연결 오류가 발생했습니다.';
+      } else if (errorString.contains('token')) {
+        errorMsg = '인증 토큰 오류가 발생했습니다. 다시 시도해주세요.';
       } else {
+        // 자세한 에러 메시지 표시 (개발 중)
         errorMsg = '로그인 실패: ${e.toString()}';
       }
       _errorMessage = errorMsg;
