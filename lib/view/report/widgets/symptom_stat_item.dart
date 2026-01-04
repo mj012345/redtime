@@ -36,8 +36,7 @@ class SymptomStatItem extends StatelessWidget {
               data.label,
               style: AppTextStyles.body.copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                color: AppColors.textSecondary,
               ),
             ),
             const Spacer(),

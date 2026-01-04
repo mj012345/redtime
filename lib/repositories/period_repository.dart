@@ -17,10 +17,6 @@ class InMemoryPeriodRepository implements PeriodRepository {
 
   @override
   void save(List<PeriodCycle> cycles) {
-    print(
-      '⚠️ [InMemoryPeriodRepository] save() 호출됨 - 메모리에만 저장 (Firebase 저장 안됨)',
-    );
-    print('⚠️ [InMemoryPeriodRepository] 주기 개수: ${cycles.length}');
     _store = List<PeriodCycle>.from(cycles);
   }
 }
@@ -33,17 +29,13 @@ class FirebasePeriodRepository implements PeriodRepository {
   FirebasePeriodRepository(this.userId)
     : _firestore = FirebaseService.checkInitialized()
           ? FirebaseFirestore.instance
-          : null {
-    print('📝 [FirebasePeriodRepository] 사용자 ID: $userId');
-    print('📝 [FirebasePeriodRepository] 저장 경로: users/$userId/periodCycles');
-  }
+          : null;
 
   String get _collectionPath => 'users/$userId/periodCycles';
 
   @override
   List<PeriodCycle> load() {
     if (_firestore == null) {
-      print('⚠️ [FirebasePeriodRepository] Firestore가 초기화되지 않았습니다.');
       return [];
     }
 
@@ -53,7 +45,6 @@ class FirebasePeriodRepository implements PeriodRepository {
       // 별도의 loadAsync 메서드 제공
       return [];
     } catch (e) {
-      print('❌ [FirebasePeriodRepository] 로드 오류: $e');
       return [];
     }
   }
@@ -62,7 +53,6 @@ class FirebasePeriodRepository implements PeriodRepository {
   Future<List<PeriodCycle>> loadAsync() async {
     final firestore = _firestore;
     if (firestore == null) {
-      print('⚠️ [FirebasePeriodRepository] Firestore가 초기화되지 않았습니다.');
       return [];
     }
 
@@ -76,23 +66,19 @@ class FirebasePeriodRepository implements PeriodRepository {
         );
       }).toList()..sort((a, b) => a.start.compareTo(b.start));
     } catch (e) {
-      print('❌ [FirebasePeriodRepository] 비동기 로드 오류: $e');
       return [];
     }
   }
 
   @override
   void save(List<PeriodCycle> cycles) {
-    print('💾 [FirebasePeriodRepository] save() 호출됨 - 주기 개수: ${cycles.length}');
     if (_firestore == null) {
-      print('⚠️ [FirebasePeriodRepository] Firestore가 초기화되지 않았습니다.');
       return;
     }
 
     // 비동기 저장 (Firebase는 비동기만 지원)
     _saveAsync(cycles).catchError((error) {
-      print('❌ [FirebasePeriodRepository] 저장 중 에러 발생: $error');
-      print('❌ [FirebasePeriodRepository] Stack trace: ${StackTrace.current}');
+      // 에러 처리
     });
   }
 
@@ -100,12 +86,8 @@ class FirebasePeriodRepository implements PeriodRepository {
   Future<void> _saveAsync(List<PeriodCycle> cycles) async {
     final firestore = _firestore;
     if (firestore == null) {
-      print('⚠️ [FirebasePeriodRepository] _saveAsync: Firestore가 null입니다.');
       return;
     }
-
-    print('💾 [FirebasePeriodRepository] _saveAsync 시작 - 경로: $_collectionPath');
-    print('💾 [FirebasePeriodRepository] 저장할 주기 개수: ${cycles.length}');
 
     try {
       final batch = firestore.batch();
@@ -135,18 +117,13 @@ class FirebasePeriodRepository implements PeriodRepository {
       }
 
       // 추가/수정: 현재 리스트의 주기들
-      if (cycles.isEmpty) {
-        print('ℹ️ [FirebasePeriodRepository] 저장할 주기가 없습니다. 기존 데이터만 삭제합니다.');
-      } else {
+      if (cycles.isNotEmpty) {
         for (final cycle in cycles) {
           final startKey = _dateKey(cycle.start);
           final docRef = existingDocs.containsKey(startKey)
               ? existingDocs[startKey]!.reference
               : collectionRef.doc(startKey);
 
-          print(
-            '💾 [FirebasePeriodRepository] 주기 저장: $startKey (시작: ${cycle.start.toIso8601String()}, 종료: ${cycle.end?.toIso8601String() ?? "없음"})',
-          );
           batch.set(docRef, {
             'start': cycle.start.toIso8601String(),
             if (cycle.end != null) 'end': cycle.end!.toIso8601String(),
@@ -154,17 +131,8 @@ class FirebasePeriodRepository implements PeriodRepository {
         }
       }
 
-      print('💾 [FirebasePeriodRepository] Batch 커밋 시작...');
       await batch.commit();
-      final added = cycles.isEmpty ? 0 : cycles.length - existingDocs.length;
-      final deleted = existingDocs.length - currentKeys.length;
-      print(
-        '✅ [FirebasePeriodRepository] 생리 주기 저장 완료: 총 ${cycles.length}개 (추가: $added, 수정: ${cycles.isEmpty ? 0 : cycles.length - added - deleted}, 삭제: $deleted)',
-      );
-      print('✅ [FirebasePeriodRepository] 저장 경로: $_collectionPath');
-    } catch (e, stackTrace) {
-      print('❌ [FirebasePeriodRepository] 저장 오류: $e');
-      print('❌ [FirebasePeriodRepository] Stack trace: $stackTrace');
+    } catch (e) {
       rethrow;
     }
   }

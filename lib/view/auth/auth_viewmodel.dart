@@ -22,18 +22,15 @@ class AuthViewModel extends ChangeNotifier {
     // 로그인 상태 변화 감지 (먼저 설정)
     _authService.authStateChanges.listen((User? user) {
       if (user != null) {
-        print('🔄 [AuthViewModel] 로그인 상태 변경 감지 - 사용자 ID: ${user.uid}');
         _currentUser = user;
         _validateAndLoadUser(user)
             .then((_) {
               notifyListeners();
             })
             .catchError((e) {
-              print('❌ [AuthViewModel] 사용자 검증 중 에러: $e');
               notifyListeners();
             });
       } else {
-        print('🔄 [AuthViewModel] 로그인 상태 변경 감지 - 로그아웃됨');
         _currentUser = null;
         _userModel = null;
         notifyListeners();
@@ -51,29 +48,20 @@ class AuthViewModel extends ChangeNotifier {
 
     final user = _authService.currentUser;
     if (user != null) {
-      print('🔍 [AuthViewModel] 앱 시작 시 사용자 유효성 검증 시작: ${user.uid}');
       await _validateAndLoadUser(user);
       notifyListeners();
-    } else {
-      print('🔍 [AuthViewModel] 앱 시작 시 로그인된 사용자 없음');
     }
   }
 
   /// 사용자 유효성 검증 및 로드
   Future<void> _validateAndLoadUser(User user) async {
-    print(
-      '🔍 [AuthViewModel] 사용자 유효성 검증 시작 - ID: ${user.uid}, 이메일: ${user.email}',
-    );
     try {
       // 사용자 정보 갱신 (Firebase에서 삭제되었는지 확인)
-      print('🔄 [AuthViewModel] 사용자 정보 갱신 중...');
       await user.reload();
-      print('✅ [AuthViewModel] 사용자 정보 갱신 완료');
 
       // 갱신된 사용자 정보 가져오기
       final updatedUser = _authService.currentUser;
       if (updatedUser == null) {
-        print('⚠️ [AuthViewModel] 사용자가 삭제되었거나 유효하지 않습니다. 로그아웃 처리합니다.');
         await signOut();
         return;
       }
@@ -81,10 +69,7 @@ class AuthViewModel extends ChangeNotifier {
       // 토큰 유효성 확인
       try {
         await updatedUser.getIdToken(true); // 강제 갱신
-        print('✅ [AuthViewModel] 사용자 토큰 유효성 확인 완료: ${updatedUser.uid}');
       } catch (e) {
-        print('❌ [AuthViewModel] 토큰 유효성 확인 실패: $e');
-        print('⚠️ [AuthViewModel] 사용자가 유효하지 않습니다. 로그아웃 처리합니다.');
         await signOut();
         return;
       }
@@ -95,7 +80,6 @@ class AuthViewModel extends ChangeNotifier {
           updatedUser.uid,
         );
         if (userModel == null) {
-          print('⚠️ [AuthViewModel] Firestore에 사용자 정보가 없습니다. 새로 생성합니다.');
           // Firestore에 사용자 정보가 없으면 새로 생성
           final newUserModel = UserModel(
             uid: updatedUser.uid,
@@ -115,10 +99,6 @@ class AuthViewModel extends ChangeNotifier {
           _userModel = userModel;
         }
       } catch (e) {
-        print('❌ [AuthViewModel] Firestore 권한 오류 발생: $e');
-        print(
-          '⚠️ [AuthViewModel] Firestore 보안 규칙이 올바르게 설정되지 않았습니다. 로그아웃 처리합니다.',
-        );
         // Firestore 권한 오류 발생 시 로그인 실패
         await signOut();
         return;
@@ -126,11 +106,8 @@ class AuthViewModel extends ChangeNotifier {
 
       _currentUser = updatedUser;
       notifyListeners();
-    } catch (e, stackTrace) {
-      print('❌ [AuthViewModel] 사용자 유효성 검증 실패: $e');
-      print('❌ [AuthViewModel] Stack trace: $stackTrace');
+    } catch (e) {
       // 에러 발생 시 로그아웃 처리
-      print('⚠️ [AuthViewModel] 에러로 인해 로그아웃 처리합니다.');
       await signOut();
     }
   }
@@ -174,7 +151,6 @@ class AuthViewModel extends ChangeNotifier {
       _errorMessage = errorMsg;
       _isLoading = false;
       notifyListeners();
-      print('구글 로그인 상세 오류: $e');
       return false;
     }
   }

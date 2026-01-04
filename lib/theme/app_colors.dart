@@ -22,4 +22,3 @@ class AppColors {
   static Color shadowLight = Colors.black.withValues(alpha: 0.05);
   static Color shadowChip = Colors.black.withValues(alpha: 0.1);
 }
-

@@ -19,12 +19,10 @@ class ReportView extends StatelessWidget {
     DateTime today,
   ) {
     if (periodCycles.isEmpty) {
-      print('📊 [ReportView] 주기 데이터 없음');
       return (avgCycle: '- 일', avgPeriod: '- 일');
     }
 
     // 최근 6개월 전 날짜 계산 (월 계산 시 음수 처리)
-    final todayDate = DateTime(today.year, today.month, today.day);
     int targetYear = today.year;
     int targetMonth = today.month - 6;
 
@@ -35,9 +33,6 @@ class ReportView extends StatelessWidget {
     }
 
     final sixMonthsAgoDate = DateTime(targetYear, targetMonth, 1);
-    print('📊 [ReportView] 전체 주기 개수: ${periodCycles.length}');
-    print('📊 [ReportView] 오늘 날짜: $todayDate');
-    print('📊 [ReportView] 최근 6개월 기준일: $sixMonthsAgoDate');
 
     // 최근 6개월 내의 주기만 필터링 (시간 부분 제거하여 비교)
     final recentCycles = periodCycles.where((cycle) {
@@ -49,10 +44,7 @@ class ReportView extends StatelessWidget {
       return !cycleStart.isBefore(sixMonthsAgoDate);
     }).toList();
 
-    print('📊 [ReportView] 최근 6개월 내 주기 개수: ${recentCycles.length}');
-
     if (recentCycles.isEmpty) {
-      print('📊 [ReportView] 최근 6개월 데이터 없음');
       return (avgCycle: '- 일', avgPeriod: '- 일');
     }
 
@@ -60,24 +52,14 @@ class ReportView extends StatelessWidget {
     final sorted = [...recentCycles]
       ..sort((a, b) => a.start.compareTo(b.start));
 
-    print('📊 [ReportView] 정렬된 주기:');
-    for (final cycle in sorted) {
-      print('  - 시작: ${cycle.start}, 종료: ${cycle.end}');
-    }
-
     // 주기 간격 계산 (각 주기 시작일 사이의 일 수)
     final intervals = <int>[];
     for (int i = 1; i < sorted.length; i++) {
       final diff = sorted[i].start.difference(sorted[i - 1].start).inDays;
       if (diff > 0) {
         intervals.add(diff);
-        print(
-          '📊 [ReportView] 주기 간격: ${sorted[i - 1].start} ~ ${sorted[i].start} = $diff 일',
-        );
       }
     }
-
-    print('📊 [ReportView] 주기 간격 개수: ${intervals.length}');
 
     // 평균 주기 길이 계산 (간격의 평균)
     String avgCycle;
@@ -85,10 +67,8 @@ class ReportView extends StatelessWidget {
       final sum = intervals.reduce((a, b) => a + b);
       final avg = (sum / intervals.length).round();
       avgCycle = '$avg 일';
-      print('📊 [ReportView] 평균 주기 계산: $sum / ${intervals.length} = $avg 일');
     } else {
       avgCycle = '- 일';
-      print('📊 [ReportView] 주기 간격이 없어 평균 주기 계산 불가 (주기 1개만 있음)');
     }
 
     // 생리 기간 계산 (각 주기의 시작일과 종료일 차이)
@@ -110,6 +90,61 @@ class ReportView extends StatelessWidget {
     }
 
     return (avgCycle: avgCycle, avgPeriod: avgPeriod);
+  }
+
+  /// 실제 생리 주기 데이터를 기반으로 차트 데이터 생성
+  List<ChartLinePoint> _generateChartData(List<PeriodCycle> periodCycles) {
+    if (periodCycles.isEmpty) {
+      return [];
+    }
+
+    // 날짜순으로 정렬
+    final sorted = [...periodCycles]
+      ..sort((a, b) => a.start.compareTo(b.start));
+
+    final chartData = <ChartLinePoint>[];
+
+    for (int i = 0; i < sorted.length; i++) {
+      final cycle = sorted[i];
+
+      // 라벨: 시작일을 "M.d" 형식으로 (예: "9.20")
+      final label = '${cycle.start.month}.${cycle.start.day}';
+
+      // 주기 간격 계산 (이전 주기와의 시작일 차이)
+      int cycleDays;
+      if (i == 0) {
+        // 첫 번째 주기는 다음 주기와의 간격을 사용
+        if (sorted.length > 1) {
+          final diff = sorted[1].start.difference(cycle.start).inDays;
+          cycleDays = diff > 0 ? diff : 28; // 기본값 28일
+        } else {
+          cycleDays = 28; // 주기가 하나만 있으면 기본값 28일
+        }
+      } else {
+        final diff = cycle.start.difference(sorted[i - 1].start).inDays;
+        cycleDays = diff > 0 ? diff : 28; // 기본값 28일
+      }
+
+      // 생리 기간 계산 (시작일부터 종료일까지의 일 수)
+      int periodDays;
+      if (cycle.end != null) {
+        final duration = cycle.end!.difference(cycle.start).inDays + 1;
+        periodDays = duration > 0 ? duration : 1;
+      } else {
+        // 종료일이 없으면 1일로 설정
+        periodDays = 1;
+      }
+
+      chartData.add(
+        ChartLinePoint(
+          label: label,
+          cycleDays: cycleDays,
+          periodDays: periodDays,
+        ),
+      );
+    }
+
+    return chartData;
   }
 
   @override
@@ -138,92 +173,7 @@ class ReportView extends StatelessWidget {
         color: Color(0xFF84A9B6),
       ),
     ];
-    final chartData = const [
-      ChartLinePoint(
-        label: '9.20',
-        cycleDays: 32,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '3.17',
-        cycleDays: 25,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '4.9',
-        cycleDays: 23,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '5.6',
-        cycleDays: 27,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '5.31',
-        cycleDays: 25,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '6.28',
-        cycleDays: 28,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '7.24',
-        cycleDays: 26,
-        periodDays: 5,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '8.24',
-        cycleDays: 31,
-        periodDays: 4,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '9.22',
-        cycleDays: 29,
-        periodDays: 4,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '10.15',
-        cycleDays: 23,
-        periodDays: 3,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '11.10',
-        cycleDays: 26,
-        periodDays: 6,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-      ChartLinePoint(
-        label: '12.12',
-        cycleDays: 32,
-        periodDays: 3,
-        cycleStatus: '안정적',
-        periodStatus: '정상',
-      ),
-    ];
+    final chartData = _generateChartData(vm.periodCycles);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -265,27 +215,27 @@ class ReportView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '최근 주기 추이',
+                    '주기 변동 그래프',
                     style: AppTextStyles.body.copyWith(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Container(
                     height: 220,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
+                      horizontal: AppSpacing.xs,
                       vertical: AppSpacing.sm,
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                      border: Border.all(color: AppColors.primaryLight),
                     ),
                     child: ChartPreview(data: chartData),
                   ),
+                  const SizedBox(height: AppSpacing.lg),
                 ],
               ),
             ),
@@ -306,7 +256,7 @@ class ReportView extends StatelessWidget {
                     style: AppTextStyles.body.copyWith(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),

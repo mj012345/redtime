@@ -164,12 +164,8 @@ class CalendarViewModel extends ChangeNotifier {
   // 생리 시작/종료
   void setPeriodStart() {
     if (selectedDay == null) {
-      print('⚠️ [CalendarViewModel] setPeriodStart: selectedDay가 null입니다.');
       return;
     }
-    print(
-      '🔴 [CalendarViewModel] setPeriodStart() 호출됨 - 선택일: ${selectedDay!.toIso8601String()}',
-    );
     final sd = DateTime(
       selectedDay!.year,
       selectedDay!.month,
@@ -221,12 +217,8 @@ class CalendarViewModel extends ChangeNotifier {
 
   void setPeriodEnd() {
     if (selectedDay == null) {
-      print('⚠️ [CalendarViewModel] setPeriodEnd: selectedDay가 null입니다.');
       return;
     }
-    print(
-      '🔴 [CalendarViewModel] setPeriodEnd() 호출됨 - 선택일: ${selectedDay!.toIso8601String()}',
-    );
     final sd = DateTime(
       selectedDay!.year,
       selectedDay!.month,
@@ -268,9 +260,6 @@ class CalendarViewModel extends ChangeNotifier {
       _calendarService.ensureDefaultEnd(periodCycles, idx);
 
   void _recomputePeriodDays() {
-    print(
-      '🔄 [CalendarViewModel] _recomputePeriodDays() 호출됨 - 주기 개수: ${periodCycles.length}',
-    );
     periodDays = _calendarService.computePeriodDays(periodCycles);
     final derived = _calendarService.computeDerivedFertility(
       periodCycles: periodCycles,
@@ -283,8 +272,6 @@ class CalendarViewModel extends ChangeNotifier {
     expectedOvulationDay = derived.expectedOvulationDay;
 
     // 생리 주기 변경 시 Firebase에 저장
-    print('💾 [CalendarViewModel] Firebase에 생리 주기 저장 시작...');
-    print('💾 [CalendarViewModel] Repository 타입: ${_periodRepo.runtimeType}');
     _periodRepo.save(periodCycles);
 
     notifyListeners();

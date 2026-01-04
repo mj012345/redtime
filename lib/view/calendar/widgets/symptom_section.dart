@@ -59,7 +59,7 @@ class _Category extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: const BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.secondary,
                 shape: BoxShape.circle,
               ),
             ),

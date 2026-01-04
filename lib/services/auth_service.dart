@@ -11,7 +11,6 @@ class AuthService {
     try {
       return FirebaseAuth.instance;
     } catch (e) {
-      print('FirebaseAuth 인스턴스 가져오기 실패: $e');
       return null;
     }
   }
@@ -21,7 +20,6 @@ class AuthService {
     try {
       return FirebaseFirestore.instance;
     } catch (e) {
-      print('FirebaseFirestore 인스턴스 가져오기 실패: $e');
       return null;
     }
   }
@@ -53,23 +51,15 @@ class AuthService {
   /// 구글 로그인 및 Firestore에 사용자 정보 저장
   Future<UserModel?> signInWithGoogle() async {
     try {
-      print('🔵 [AuthService] 구글 로그인 시작');
-
       // Firebase 초기화 확인
       final isInitialized = FirebaseService.checkInitialized();
-      print('🔵 [AuthService] Firebase 초기화 상태: $isInitialized');
 
       if (!isInitialized || _auth == null) {
-        print('❌ [AuthService] Firebase 초기화 실패 또는 _auth가 null');
         throw Exception('Firebase가 초기화되지 않았습니다. 앱을 재시작해주세요.');
       }
 
-      print('🔵 [AuthService] Google Sign-In API 호출 시작...');
       // 1. 구글 로그인
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      print(
-        '🔵 [AuthService] Google Sign-In 응답: ${googleUser != null ? "성공" : "취소됨"}',
-      );
       if (googleUser == null) {
         // 사용자가 로그인 취소
         return null;
@@ -118,7 +108,6 @@ class AuthService {
 
       return userModel;
     } catch (e) {
-      print('구글 로그인 오류: $e');
       rethrow;
     }
   }
@@ -126,33 +115,25 @@ class AuthService {
   /// Firestore에 사용자 정보 저장 (없으면 생성, 있으면 업데이트)
   Future<void> saveUserToFirestore(UserModel userModel) async {
     if (_firestore == null) {
-      print('Firestore가 초기화되지 않았습니다.');
       return;
     }
 
     try {
       final userRef = _firestore!.collection('users').doc(userModel.uid);
-      print('💾 [AuthService] Firestore 저장 시도 - 경로: users/${userModel.uid}');
 
       final docSnapshot = await userRef.get();
       if (docSnapshot.exists) {
         // 기존 사용자: updatedAt만 업데이트
-        print('💾 [AuthService] 기존 사용자 정보 업데이트');
         await userRef.update({
           'displayName': userModel.displayName,
           'photoURL': userModel.photoURL,
           'updatedAt': userModel.updatedAt.toIso8601String(),
         });
-        print('✅ [AuthService] 사용자 정보 업데이트 완료');
       } else {
         // 신규 사용자: 전체 정보 저장
-        print('💾 [AuthService] 신규 사용자 정보 저장');
         await userRef.set(userModel.toMap());
-        print('✅ [AuthService] 사용자 정보 저장 완료');
       }
-    } catch (e, stackTrace) {
-      print('❌ [AuthService] Firestore 저장 오류: $e');
-      print('❌ [AuthService] Stack trace: $stackTrace');
+    } catch (e) {
       rethrow;
     }
   }
@@ -161,21 +142,15 @@ class AuthService {
   Future<UserModel?> getUserFromFirestore(String uid) async {
     try {
       if (_firestore == null) {
-        print('Firestore가 초기화되지 않았습니다.');
         return null;
       }
 
-      print('📖 [AuthService] Firestore에서 사용자 정보 가져오기 시도 - 경로: users/$uid');
       final docSnapshot = await _firestore!.collection('users').doc(uid).get();
       if (docSnapshot.exists) {
-        print('✅ [AuthService] 사용자 정보 가져오기 성공');
         return UserModel.fromMap(docSnapshot.data()!);
       }
-      print('ℹ️ [AuthService] 사용자 정보가 Firestore에 없음');
       return null;
-    } catch (e, stackTrace) {
-      print('❌ [AuthService] 사용자 정보 가져오기 오류: $e');
-      print('❌ [AuthService] Stack trace: $stackTrace');
+    } catch (e) {
       rethrow;
     }
   }
