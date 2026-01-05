@@ -144,6 +144,22 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 생리 기간의 최소값과 최대값 계산 (변동 폭을 더 잘 보이게 하기 위해)
+    int periodMin = data.isNotEmpty ? data[0].periodDays : 1;
+    int periodMax = data.isNotEmpty ? data[0].periodDays : 1;
+    for (final point in data) {
+      if (point.periodDays < periodMin) periodMin = point.periodDays;
+      if (point.periodDays > periodMax) periodMax = point.periodDays;
+    }
+
+    // 생리 기간의 변동 폭이 너무 작으면 최소값을 조정하여 변동 폭 확대
+    final periodRange = periodMax - periodMin;
+    if (periodRange < 3) {
+      // 변동 폭이 3 미만이면 최소값을 줄여서 변동 폭을 확대
+      periodMin = (periodMin - 1).clamp(1, periodMax);
+      periodMax = (periodMax + 1).clamp(periodMin, 999);
+    }
+
     // 그리드 라인 (수평 4줄)
     final gridPaint = Paint()
       ..color = AppColors.primaryLight.withValues(alpha: 0.6)
@@ -153,11 +169,23 @@ class _LineChartPainter extends CustomPainter {
       canvas.drawLine(Offset(0, dy), Offset(size.width, dy), gridPaint);
     }
 
-    // 좌표 변환
-    Offset pt(int idx, int value) {
+    // 좌표 변환 (생리주기용)
+    Offset ptCycle(int idx, int value) {
       final ratio = value / maxValue;
       final x = leftPadding + idx * pointSpacing;
       final y = topPadding + chartHeight * (1 - ratio);
+      return Offset(x, y);
+    }
+
+    // 좌표 변환 (생리 기간용 - 별도 스케일 사용)
+    Offset ptPeriod(int idx, int value) {
+      final periodRange = periodMax - periodMin;
+      final effectiveRange = periodRange > 0 ? periodRange : 1;
+      final ratio = (value - periodMin) / effectiveRange;
+      final x = leftPadding + idx * pointSpacing;
+      // 생리 기간은 그래프 하단 60% 영역을 사용하여 변동 폭을 더 크게 표시
+      final periodChartHeight = chartHeight * 0.3;
+      final y = topPadding + chartHeight - periodChartHeight * (1 - ratio);
       return Offset(x, y);
     }
 
@@ -211,8 +239,8 @@ class _LineChartPainter extends CustomPainter {
     final periodValues = <int>[];
 
     for (int i = 0; i < data.length; i++) {
-      cyclePoints.add(pt(i, data[i].cycleDays));
-      periodPoints.add(pt(i, data[i].periodDays));
+      cyclePoints.add(ptCycle(i, data[i].cycleDays));
+      periodPoints.add(ptPeriod(i, data[i].periodDays));
       cycleValues.add(data[i].cycleDays);
       periodValues.add(data[i].periodDays);
     }
