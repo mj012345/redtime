@@ -123,6 +123,7 @@ class AuthService {
 
       // 6. Firestore에서 기존 사용자 정보 확인
       final existingUserModel = await getUserFromFirestore(user.uid);
+      final isNewUser = existingUserModel == null;
 
       // 7. 기존 회원이면 기존 정보로 로그인, 신규 회원이면 새로 생성
       final userModel = existingUserModel != null
@@ -151,7 +152,24 @@ class AuthService {
               updatedAt: DateTime.now(),
             );
 
-      await saveUserToFirestore(userModel);
+      // 8. Firestore에 저장 (신규 회원은 반드시 성공해야 함)
+      try {
+        await saveUserToFirestore(userModel);
+      } catch (e) {
+        // 신규 회원인데 저장 실패하면 Firebase Auth에서 로그아웃하고 예외 던지기
+        if (isNewUser) {
+          debugPrint('신규 회원 Firestore 저장 실패: $e');
+          try {
+            await _auth!.signOut();
+          } catch (_) {
+            // 로그아웃 실패는 무시
+          }
+          throw Exception('회원가입에 실패했습니다. 다시 시도해주세요.');
+        } else {
+          // 기존 회원은 업데이트 실패해도 로그인 허용 (프로필 정보만 업데이트 안 됨)
+          debugPrint('기존 회원 Firestore 업데이트 실패: $e');
+        }
+      }
 
       return userModel;
     } catch (e) {
@@ -162,7 +180,7 @@ class AuthService {
   /// Firestore에 사용자 정보 저장 (없으면 생성, 있으면 업데이트)
   Future<void> saveUserToFirestore(UserModel userModel) async {
     if (_firestore == null) {
-      return;
+      throw Exception('Firestore가 초기화되지 않았습니다.');
     }
 
     try {
@@ -181,6 +199,7 @@ class AuthService {
         await userRef.set(userModel.toMap());
       }
     } catch (e) {
+      debugPrint('Firestore 저장 실패: $e');
       rethrow;
     }
   }

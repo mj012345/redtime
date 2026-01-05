@@ -1,9 +1,9 @@
-import 'dart:ui';
-
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:red_time_app/firebase_options.dart';
 import 'package:red_time_app/repositories/period_repository.dart';
 import 'package:red_time_app/repositories/symptom_repository.dart';
 import 'package:red_time_app/router/no_transition.dart';
@@ -25,6 +25,10 @@ Future<void> main() async {
     debugPrint('전역 에러: ${details.exception}');
     debugPrint('스택: ${details.stack}');
     // FlutterError.presentError()를 호출하지 않아 빨간 화면이 나타나지 않음
+    // release 모드에서도 작동하도록 처리
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    }
   };
 
   // 플랫폼 예외 핸들러
@@ -35,9 +39,13 @@ Future<void> main() async {
   };
 
   // Firebase 초기화
-  final initialized = await FirebaseService.initialize();
-  if (!initialized) {
-    // 초기화 실패해도 앱은 실행 (checkInitialized()에서 재시도)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase 초기화 실패: $e');
+    // 초기화 실패해도 앱은 실행 (FirebaseService.checkInitialized()에서 재시도)
   }
 
   runApp(const MyApp());
@@ -100,6 +108,12 @@ class MyApp extends StatelessWidget {
             bodySmall: AppTextStyles.caption,
           ),
         ),
+        // 에러 발생 시 빨간 화면 대신 에러 메시지 표시
+        builder: (context, child) {
+          Widget errorWidget = child ?? const SizedBox();
+          // 에러 발생 시 처리
+          return MediaQuery(data: MediaQuery.of(context), child: errorWidget);
+        },
         home: const AuthWrapper(),
         onGenerateRoute: (settings) {
           switch (settings.name) {

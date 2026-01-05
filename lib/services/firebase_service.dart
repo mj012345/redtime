@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:red_time_app/firebase_options.dart';
 
 /// Firebase 초기화 상태 관리
 class FirebaseService {
@@ -11,7 +12,9 @@ class FirebaseService {
   /// Firebase 초기화
   static Future<bool> initialize() async {
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
 
       // 초기화 후 확인
       try {

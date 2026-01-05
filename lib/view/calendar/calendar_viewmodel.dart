@@ -23,22 +23,32 @@ class CalendarViewModel extends ChangeNotifier {
 
   /// 비동기 초기화 (Firebase Repository 사용 시)
   Future<void> _initialize() async {
-    // Firebase Repository인 경우 비동기 로드, 아니면 동기 로드
-    if (_symptomRepo is FirebaseSymptomRepository) {
-      _symptomSelections = await (_symptomRepo).loadAsync();
-    } else {
-      _symptomSelections = _symptomRepo.loadSelections();
-    }
+    try {
+      // Firebase Repository인 경우 비동기 로드, 아니면 동기 로드
+      if (_symptomRepo is FirebaseSymptomRepository) {
+        _symptomSelections = await (_symptomRepo).loadAsync();
+      } else {
+        _symptomSelections = _symptomRepo.loadSelections();
+      }
 
-    if (_periodRepo is FirebasePeriodRepository) {
-      periodCycles = await (_periodRepo).loadAsync();
-    } else {
-      periodCycles = _periodRepo.load();
-    }
+      if (_periodRepo is FirebasePeriodRepository) {
+        periodCycles = await (_periodRepo).loadAsync();
+      } else {
+        periodCycles = _periodRepo.load();
+      }
 
-    _recomputeSymptomRecordDays();
-    _recomputePeriodDays();
-    notifyListeners();
+      _recomputeSymptomRecordDays();
+      _recomputePeriodDays();
+      _isInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('CalendarViewModel 초기화 에러: $e');
+      // 에러 발생 시에도 기본값으로 초기화
+      _symptomSelections = _symptomSelections.isEmpty ? {} : _symptomSelections;
+      periodCycles = periodCycles.isEmpty ? [] : periodCycles;
+      _isInitialized = true;
+      notifyListeners();
+    }
   }
 
   // 기본 날짜 상태
@@ -61,7 +71,8 @@ class CalendarViewModel extends ChangeNotifier {
 
   // 증상 기록
   List<DateTime> symptomRecordDays = [];
-  late final Map<String, Set<String>> _symptomSelections;
+  Map<String, Set<String>> _symptomSelections = {}; // late final 제거, 초기값 설정
+  bool _isInitialized = false; // 초기화 상태 추적
   final PeriodRepository _periodRepo;
   final SymptomRepository _symptomRepo;
   final CalendarService _calendarService;
@@ -104,9 +115,12 @@ class CalendarViewModel extends ChangeNotifier {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  // 증기화 상태 확인
+  bool get isInitialized => _isInitialized;
+
   // 증상 선택 상태
   Set<String> selectedSymptomsFor(DateTime? day) {
-    if (day == null) return <String>{};
+    if (day == null || !_isInitialized) return <String>{};
     return _symptomSelections[_dateKey(day)] ?? <String>{};
   }
 
