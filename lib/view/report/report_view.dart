@@ -92,6 +92,99 @@ class ReportView extends StatelessWidget {
     return (avgCycle: avgCycle, avgPeriod: avgPeriod);
   }
 
+  /// 최근 12개월 기준으로 자주 기록된 증상 통계 계산
+  List<SymptomStatItemData> _calculateSymptomStats(
+    Map<String, Set<String>> symptomSelections,
+    DateTime today,
+  ) {
+    // 최근 12개월 전 날짜 계산
+    int targetYear = today.year;
+    int targetMonth = today.month - 12;
+
+    // 월이 음수가 되면 이전 해로 조정
+    while (targetMonth <= 0) {
+      targetMonth += 12;
+      targetYear -= 1;
+    }
+
+    final twelveMonthsAgoDate = DateTime(targetYear, targetMonth, 1);
+
+    // 최근 12개월 내의 증상 데이터만 필터링
+    final recentSymptoms = <String, Set<String>>{};
+    for (final entry in symptomSelections.entries) {
+      final dateKey = entry.key;
+      final parts = dateKey.split('-');
+      if (parts.length == 3) {
+        try {
+          final date = DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+          if (!date.isBefore(twelveMonthsAgoDate)) {
+            recentSymptoms[dateKey] = entry.value;
+          }
+        } catch (e) {
+          // 날짜 파싱 실패 시 무시
+        }
+      }
+    }
+
+    if (recentSymptoms.isEmpty) {
+      return [];
+    }
+
+    // 각 증상별 기록 횟수 계산
+    final symptomCounts = <String, int>{};
+    int totalRecordedDays = 0;
+
+    for (final symptoms in recentSymptoms.values) {
+      if (symptoms.isNotEmpty) {
+        totalRecordedDays++;
+      }
+      for (final symptom in symptoms) {
+        symptomCounts[symptom] = (symptomCounts[symptom] ?? 0) + 1;
+      }
+    }
+
+    if (symptomCounts.isEmpty || totalRecordedDays == 0) {
+      return [];
+    }
+
+    // 기록 횟수 기준으로 정렬 (내림차순)
+    final sortedSymptoms = symptomCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // 상위 3개만 선택
+    final topSymptoms = sortedSymptoms.take(3).toList();
+
+    // 색상 정의 (기존 색상 사용)
+    final colors = [
+      AppColors.primary,
+      const Color(0xFFFE7A36),
+      const Color(0xFF84A9B6),
+    ];
+
+    // SymptomStatItemData 리스트 생성
+    final result = <SymptomStatItemData>[];
+    for (int i = 0; i < topSymptoms.length; i++) {
+      final entry = topSymptoms[i];
+      final count = entry.value;
+      final ratio = totalRecordedDays > 0 ? count / totalRecordedDays : 0.0;
+
+      result.add(
+        SymptomStatItemData(
+          label: entry.key,
+          count: count,
+          ratio: ratio.clamp(0.0, 1.0),
+          color: colors[i % colors.length],
+        ),
+      );
+    }
+
+    return result;
+  }
+
   /// 실제 생리 주기 데이터를 기반으로 차트 데이터 생성
   List<ChartLinePoint> _generateChartData(List<PeriodCycle> periodCycles) {
     if (periodCycles.isEmpty) {
@@ -153,26 +246,7 @@ class ReportView extends StatelessWidget {
     final averages = _calculateAverages(vm.periodCycles, vm.today);
     final avgCycle = averages.avgCycle;
     final avgPeriod = averages.avgPeriod;
-    final symptomStats = const [
-      SymptomStatItemData(
-        label: '생리통',
-        count: 12,
-        ratio: 0.97,
-        color: AppColors.primary,
-      ),
-      SymptomStatItemData(
-        label: '생리통',
-        count: 8,
-        ratio: 0.66,
-        color: Color(0xFFFE7A36),
-      ),
-      SymptomStatItemData(
-        label: '생리통',
-        count: 5,
-        ratio: 0.42,
-        color: Color(0xFF84A9B6),
-      ),
-    ];
+    final symptomStats = _calculateSymptomStats(vm.symptomSelections, vm.today);
     final chartData = _generateChartData(vm.periodCycles);
 
     return Scaffold(
@@ -243,10 +317,25 @@ class ReportView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  for (final item in symptomStats) ...[
-                    SymptomStatItem(data: item),
-                    const SizedBox(height: AppSpacing.sm),
-                  ],
+                  if (symptomStats.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.lg,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '최근 12개월 동안 기록된 증상이 없습니다.',
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.textDisabled,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final item in symptomStats) ...[
+                      SymptomStatItem(data: item),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                 ],
               ),
             ),

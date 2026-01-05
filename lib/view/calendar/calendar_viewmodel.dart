@@ -124,6 +124,11 @@ class CalendarViewModel extends ChangeNotifier {
     return _symptomSelections[_dateKey(day)] ?? <String>{};
   }
 
+  // 증상 데이터 전체 접근 (리포트용)
+  Map<String, Set<String>> get symptomSelections => Map<String, Set<String>>.from(
+        _symptomSelections.map((k, v) => MapEntry(k, Set<String>.from(v))),
+      );
+
   void toggleSymptom(String label) {
     if (selectedDay == null) return;
     final key = _dateKey(selectedDay!);
