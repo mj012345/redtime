@@ -36,13 +36,13 @@ class SymptomStatItem extends StatelessWidget {
               data.label,
               style: AppTextStyles.body.copyWith(
                 fontSize: 16,
-                color: AppColors.textSecondary,
+                color: AppColors.textPrimary,
               ),
             ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
+                horizontal: AppSpacing.md,
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
@@ -53,36 +53,36 @@ class SymptomStatItem extends StatelessWidget {
                 '${data.count}회',
                 style: AppTextStyles.caption.copyWith(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: data.color,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: AppSpacing.sm),
         Stack(
           children: [
             Container(
-              height: 10,
+              height: 20,
               decoration: BoxDecoration(
                 color: barBg,
-                borderRadius: BorderRadius.circular(50),
+                borderRadius: BorderRadius.circular(5),
               ),
             ),
             FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: barWidthRatio,
               child: Container(
-                height: 10,
+                height: 20,
                 decoration: BoxDecoration(
                   color: data.color,
-                  borderRadius: BorderRadius.circular(50),
+                  borderRadius: BorderRadius.circular(5),
                 ),
               ),
             ),
           ],
         ),
+        const SizedBox(height: AppSpacing.md),
       ],
     );
   }

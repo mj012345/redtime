@@ -191,6 +191,16 @@ class ReportView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 1. 평균 생리주기, 평균 생리기간
+            Text(
+              "최근 6개월 기준",
+              style: AppTextStyles.body.copyWith(
+                fontSize: 12,
+                color: AppColors.textDisabled,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+
             Row(
               children: [
                 Expanded(
@@ -203,6 +213,45 @@ class ReportView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
+            // 2. 자주 기록된 증상
+            Text(
+              "최근 12개월 기준",
+              style: AppTextStyles.body.copyWith(
+                fontSize: 12,
+                color: AppColors.textDisabled,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                border: Border.all(color: AppColors.primaryLight),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '자주 기록된 증상',
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: AppTextStyles.title.fontSize,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  for (final item in symptomStats) ...[
+                    SymptomStatItem(data: item),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            // 3. 주기 변동 그래프
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -217,7 +266,7 @@ class ReportView extends StatelessWidget {
                   Text(
                     '주기 변동 그래프',
                     style: AppTextStyles.body.copyWith(
-                      fontSize: 16,
+                      fontSize: AppTextStyles.title.fontSize,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
                     ),
@@ -236,34 +285,6 @@ class ReportView extends StatelessWidget {
                     child: ChartPreview(data: chartData),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                border: Border.all(color: AppColors.primaryLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '자주 기록된 증상',
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  for (final item in symptomStats) ...[
-                    SymptomStatItem(data: item),
-                    const SizedBox(height: AppSpacing.sm),
-                  ],
                 ],
               ),
             ),
