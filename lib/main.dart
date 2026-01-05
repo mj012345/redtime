@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:red_time_app/repositories/period_repository.dart';
@@ -16,6 +19,20 @@ import 'package:red_time_app/view/report/report_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 전역 에러 핸들러 설정 (빨간 에러 화면 방지)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('전역 에러: ${details.exception}');
+    debugPrint('스택: ${details.stack}');
+    // FlutterError.presentError()를 호출하지 않아 빨간 화면이 나타나지 않음
+  };
+
+  // 플랫폼 예외 핸들러
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('플랫폼 에러: $error');
+    debugPrint('스택: $stack');
+    return true; // 에러 처리됨
+  };
 
   // Firebase 초기화
   final initialized = await FirebaseService.initialize();
@@ -199,6 +216,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
+          // 에러 발생 시 로그인 화면으로 이동
+          if (snapshot.hasError) {
+            debugPrint('authStateChanges Stream 에러: ${snapshot.error}');
+            return const LoginView();
+          }
+
           if (snapshot.hasData && snapshot.data != null) {
             return const FigmaCalendarPage();
           } else {

@@ -62,9 +62,7 @@ class AuthService {
         throw Exception('Firebase가 초기화되지 않았습니다. 앱을 재시작해주세요.');
       }
 
-      // 1. Firebase 세션만 정리
-      // Google Sign In은 계정 선택 화면을 제공하므로 signOut() 불필요
-      // signOut() 후 바로 signIn() 호출 시 ApiException: 10 발생 가능
+      // 1. Firebase 세션 정리
       try {
         if (_auth!.currentUser != null) {
           await _auth!.signOut();
@@ -73,41 +71,29 @@ class AuthService {
         // 이미 로그아웃된 경우 무시
       }
 
-      // 2. 구글 로그인 (계정 선택 화면 표시)
+      // 2. Google Sign In 세션 정리 (항상 계정 선택 화면이 나오도록)
+      try {
+        await _googleSignIn.signOut();
+      } catch (e) {
+        // 이미 로그아웃된 경우 무시
+      }
+
+      // 3. 구글 로그인 (계정 선택 화면 표시)
       GoogleSignInAccount? googleUser;
       try {
         googleUser = await _googleSignIn.signIn();
       } on PlatformException catch (e) {
-        // 상세 에러 로깅 (디버깅용)
-        debugPrint('=== Google Sign In 에러 상세 ===');
-        debugPrint('에러 코드: ${e.code}');
-        debugPrint('에러 메시지: ${e.message}');
-        debugPrint('상세 정보: $e');
-        debugPrint('디테일: ${e.details}');
-        debugPrint('==============================');
+        debugPrint('Google Sign In 에러: ${e.code} - ${e.message}');
 
-        // ApiException: 10은 Firebase 설정 문제 (SHA-1 인증서 지문 미등록 등)
-        if (e.code == 'sign_in_failed' &&
-            e.message?.contains('ApiException: 10') == true) {
-          throw Exception(
-            'Google 로그인 설정 오류 (ApiException: 10)\n\n'
-            '해결 방법:\n'
-            '1. Firebase Console > 프로젝트 설정 > SHA-1 지문 등록\n'
-            '   SHA-1: EE:B6:E8:29:DE:0A:B9:9C:50:36:51:9E:7F:44:F4:51:4C:61:7C:ED\n'
-            '2. 등록 후 google-services.json 새로 다운로드\n'
-            '3. 시뮬레이터 사용 시: 실제 Android 기기에서 테스트 권장',
-          );
-        } else if (e.code == 'sign_in_failed') {
-          throw Exception(
-            'Google 로그인에 실패했습니다.\n\n'
-            '인터넷 연결을 확인하거나 잠시 후 다시 시도해주세요.',
-          );
-        } else {
-          throw Exception('Google 로그인 오류가 발생했습니다.\n\n다시 시도해주세요.');
+        if (e.code == 'sign_in_failed') {
+          if (e.message?.contains('ApiException: 10') == true) {
+            throw Exception('Google 로그인 설정 오류 (ApiException: 10)');
+          }
+          throw Exception('Google 로그인에 실패했습니다.');
         }
+        rethrow;
       } catch (e) {
-        // PlatformException이 아닌 다른 예외
-        debugPrint('Google Sign In 예외 (PlatformException 아님): $e');
+        debugPrint('Google Sign In 예외: $e');
         rethrow;
       }
 
@@ -117,32 +103,18 @@ class AuthService {
       }
 
       // 3. 인증 정보 가져오기
-      GoogleSignInAuthentication googleAuth;
-      try {
-        googleAuth = await googleUser.authentication;
-      } catch (e) {
-        throw Exception('Google 인증 정보를 가져오는데 실패했습니다: $e');
-      }
-
+      final googleAuth = await googleUser.authentication;
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
         throw Exception('Google 인증 토큰이 없습니다.');
       }
 
-      // 4. Firebase 인증 자격 증명 생성
+      // 4. Firebase에 로그인
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // 5. Firebase에 로그인
-      UserCredential userCredential;
-      try {
-        userCredential = await _auth!.signInWithCredential(credential);
-      } on FirebaseAuthException catch (e) {
-        throw Exception('Firebase 인증 실패: ${e.code} - ${e.message}');
-      } catch (e) {
-        throw Exception('Firebase 로그인 실패: $e');
-      }
+      final userCredential = await _auth!.signInWithCredential(credential);
       final User? user = userCredential.user;
 
       if (user == null) {
@@ -230,12 +202,33 @@ class AuthService {
     }
   }
 
-  /// 로그아웃
+  /// 로그아웃 - 모든 세션 완전히 정리
   Future<void> signOut() async {
-    final futures = <Future<void>>[_googleSignIn.signOut()];
-    if (_auth != null) {
-      futures.add(_auth!.signOut());
+    final futures = <Future<void>>[];
+
+    // Google Sign In 연결 완전히 해제 (disconnect)
+    try {
+      final currentAccount = await _googleSignIn.signInSilently();
+      if (currentAccount != null) {
+        futures.add(_googleSignIn.disconnect());
+      }
+    } catch (_) {
+      // 계정이 없거나 오류 발생 시 무시하고 계속 진행
     }
-    await Future.wait(futures);
+
+    // Google Sign In 로그아웃
+    try {
+      futures.add(_googleSignIn.signOut());
+    } catch (_) {}
+
+    // Firebase 로그아웃
+    if (_auth != null) {
+      try {
+        futures.add(_auth!.signOut());
+      } catch (_) {}
+    }
+
+    // 모든 로그아웃 작업 완료 대기
+    await Future.wait(futures, eagerError: false);
   }
 }
