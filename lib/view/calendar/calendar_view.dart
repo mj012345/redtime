@@ -26,7 +26,7 @@ class FigmaCalendarPage extends StatelessWidget {
       }
 
       final startSel = vm.isSelectedDayStart();
-      final endSel = !startSel && vm.isSelectedDayEnd();
+      final endSel = vm.isSelectedDayEnd();
 
       // 선택된 날짜가 오늘 이후인지 확인 (날짜만 비교)
       final isFutureDate =

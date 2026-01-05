@@ -173,7 +173,13 @@ class DayCell extends StatelessWidget {
     required bool isExpectedPeriodStart,
   }) {
     Widget? indicator;
-    if (isPeriod && isPeriodStart) {
+    // 시작일과 종료일이 같은 경우 '시작/종료'로 표시
+    if (isPeriod && isPeriodStart && isPeriodEnd) {
+      indicator = const Text(
+        '시작/종료',
+        style: TextStyle(fontSize: 10, color: AppColors.primary),
+      );
+    } else if (isPeriod && isPeriodStart) {
       indicator = const Text(
         '시작',
         style: TextStyle(fontSize: 10, color: AppColors.primary),
