@@ -50,14 +50,19 @@ class FirebasePeriodRepository implements PeriodRepository {
   }
 
   /// 비동기 로드
-  Future<List<PeriodCycle>> loadAsync() async {
+  Future<List<PeriodCycle>> loadAsync({bool forceRefresh = false}) async {
     final firestore = _firestore;
     if (firestore == null) {
       return [];
     }
 
     try {
-      final snapshot = await firestore.collection(_collectionPath).get();
+      // forceRefresh가 true이면 서버에서 강제로 가져오기
+      final snapshot = forceRefresh
+          ? await firestore
+                .collection(_collectionPath)
+                .get(const GetOptions(source: Source.server))
+          : await firestore.collection(_collectionPath).get();
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return PeriodCycle(

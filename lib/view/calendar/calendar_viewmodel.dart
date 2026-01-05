@@ -23,31 +23,49 @@ class CalendarViewModel extends ChangeNotifier {
 
   /// 비동기 초기화 (Firebase Repository 사용 시)
   Future<void> _initialize() async {
+    await refresh();
+  }
+
+  /// 데이터 새로고침 (리프레시용)
+  Future<void> refresh() async {
     try {
-      // Firebase Repository인 경우 비동기 로드, 아니면 동기 로드
+      // 리프레시 시 기존 데이터를 먼저 초기화 (Firebase에서 빈 데이터가 올 수 있으므로)
+      Map<String, Set<String>> newSymptomSelections = {};
+      List<PeriodCycle> newPeriodCycles = [];
+
+      // Firebase Repository인 경우 서버에서 강제로 최신 데이터 가져오기
       if (_symptomRepo is FirebaseSymptomRepository) {
-        _symptomSelections = await (_symptomRepo).loadAsync();
+        newSymptomSelections = await (_symptomRepo).loadAsync(
+          forceRefresh: true,
+        );
       } else {
-        _symptomSelections = _symptomRepo.loadSelections();
+        newSymptomSelections = _symptomRepo.loadSelections();
       }
 
       if (_periodRepo is FirebasePeriodRepository) {
-        periodCycles = await (_periodRepo).loadAsync();
+        newPeriodCycles = await (_periodRepo).loadAsync(forceRefresh: true);
       } else {
-        periodCycles = _periodRepo.load();
+        newPeriodCycles = _periodRepo.load();
       }
+
+      // 가져온 데이터로 덮어쓰기 (빈 데이터여도)
+      _symptomSelections = newSymptomSelections;
+      periodCycles = newPeriodCycles;
 
       _recomputeSymptomRecordDays();
       _recomputePeriodDays();
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('CalendarViewModel 초기화 에러: $e');
-      // 에러 발생 시에도 기본값으로 초기화
-      _symptomSelections = _symptomSelections.isEmpty ? {} : _symptomSelections;
-      periodCycles = periodCycles.isEmpty ? [] : periodCycles;
+      debugPrint('CalendarViewModel 리프레시 에러: $e');
+      // 에러 발생 시 빈 데이터로 초기화 (기존 데이터 유지하지 않음)
+      _symptomSelections = {};
+      periodCycles = [];
+      _recomputeSymptomRecordDays();
+      _recomputePeriodDays();
       _isInitialized = true;
       notifyListeners();
+      rethrow; // 리프레시 실패를 호출자에게 알림
     }
   }
 
@@ -125,7 +143,8 @@ class CalendarViewModel extends ChangeNotifier {
   }
 
   // 증상 데이터 전체 접근 (리포트용)
-  Map<String, Set<String>> get symptomSelections => Map<String, Set<String>>.from(
+  Map<String, Set<String>> get symptomSelections =>
+      Map<String, Set<String>>.from(
         _symptomSelections.map((k, v) => MapEntry(k, Set<String>.from(v))),
       );
 

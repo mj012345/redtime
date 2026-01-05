@@ -46,14 +46,27 @@ class FirebaseSymptomRepository implements SymptomRepository {
   }
 
   /// 비동기 로드
-  Future<Map<String, Set<String>>> loadAsync() async {
+  Future<Map<String, Set<String>>> loadAsync({
+    bool forceRefresh = false,
+  }) async {
     final firestore = _firestore;
     if (firestore == null) {
       return {};
     }
 
     try {
-      final snapshot = await firestore.collection(_collectionPath).get();
+      // forceRefresh가 true이면 서버에서 강제로 가져오기
+      final snapshot = forceRefresh
+          ? await firestore
+                .collection(_collectionPath)
+                .get(const GetOptions(source: Source.server))
+          : await firestore.collection(_collectionPath).get();
+
+      // 컬렉션이 삭제되었거나 비어있으면 빈 Map 반환
+      if (snapshot.docs.isEmpty) {
+        return {};
+      }
+
       final result = <String, Set<String>>{};
 
       for (final doc in snapshot.docs) {

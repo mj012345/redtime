@@ -242,13 +242,6 @@ class ReportView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vm = Provider.of<CalendarViewModel>(context, listen: false);
-    final averages = _calculateAverages(vm.periodCycles, vm.today);
-    final avgCycle = averages.avgCycle;
-    final avgPeriod = averages.avgPeriod;
-    final symptomStats = _calculateSymptomStats(vm.symptomSelections, vm.today);
-    final chartData = _generateChartData(vm.periodCycles);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -257,128 +250,153 @@ class ReportView extends StatelessWidget {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.lg,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. 평균 생리주기, 평균 생리기간
-            Text(
-              "최근 6개월 기준",
-              style: AppTextStyles.body.copyWith(
-                fontSize: 12,
-                color: AppColors.textDisabled,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
+      body: Consumer<CalendarViewModel>(
+        builder: (context, vm, child) {
+          final averages = _calculateAverages(vm.periodCycles, vm.today);
+          final avgCycle = averages.avgCycle;
+          final avgPeriod = averages.avgPeriod;
 
-            Row(
-              children: [
-                Expanded(
-                  child: SummaryCard(label: '평균 생리주기', value: avgCycle),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: SummaryCard(label: '평균 생리기간', value: avgPeriod),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // 2. 자주 기록된 증상
-            Text(
-              "최근 12개월 기준",
-              style: AppTextStyles.body.copyWith(
-                fontSize: 12,
-                color: AppColors.textDisabled,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
+          // 증상 데이터 확인
+          final symptomSelections = vm.symptomSelections;
 
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                border: Border.all(color: AppColors.primaryLight),
+          final symptomStats = _calculateSymptomStats(
+            symptomSelections,
+            vm.today,
+          );
+          final chartData = _generateChartData(vm.periodCycles);
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              await vm.refresh();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.lg,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 1. 평균 생리주기, 평균 생리기간
                   Text(
-                    '자주 기록된 증상',
+                    "최근 6개월 기준",
                     style: AppTextStyles.body.copyWith(
-                      fontSize: AppTextStyles.title.fontSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      color: AppColors.textDisabled,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (symptomStats.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.lg,
+                  const SizedBox(height: AppSpacing.xs),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SummaryCard(label: '평균 생리주기', value: avgCycle),
                       ),
-                      child: Center(
-                        child: Text(
-                          '최근 12개월 동안 기록된 증상이 없습니다.',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.textDisabled,
-                          ),
-                        ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: SummaryCard(label: '평균 생리기간', value: avgPeriod),
                       ),
-                    )
-                  else
-                    for (final item in symptomStats) ...[
-                      SymptomStatItem(data: item),
-                      const SizedBox(height: AppSpacing.sm),
                     ],
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // 3. 주기 변동 그래프
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                border: Border.all(color: AppColors.primaryLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '주기 변동 그래프',
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: AppTextStyles.title.fontSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    height: 220,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                      vertical: AppSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    ),
-                    child: ChartPreview(data: chartData),
                   ),
                   const SizedBox(height: AppSpacing.lg),
+                  // 2. 자주 기록된 증상
+                  Text(
+                    "최근 12개월 기준",
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 12,
+                      color: AppColors.textDisabled,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      border: Border.all(color: AppColors.primaryLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '자주 기록된 증상',
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: AppTextStyles.title.fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        if (symptomStats.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '증상 기록이 없습니다.',
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.textDisabled,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          for (final item in symptomStats) ...[
+                            SymptomStatItem(data: item),
+                            const SizedBox(height: AppSpacing.sm),
+                          ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // 3. 주기 변동 그래프
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      border: Border.all(color: AppColors.primaryLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '주기 변동 그래프',
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: AppTextStyles.title.fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Container(
+                          height: 220,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: AppSpacing.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusMd,
+                            ),
+                          ),
+                          child: ChartPreview(data: chartData),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
       bottomNavigationBar: BottomNav(
         current: NavTab.report,

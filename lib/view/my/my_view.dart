@@ -50,26 +50,39 @@ class MyView extends StatelessWidget {
         foregroundColor: const Color(0xFF333333),
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          const Expanded(child: Center(child: Text('MY 화면 (준비중)'))),
-          // 로그아웃 버튼
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => _handleSignOut(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // 마이 페이지는 현재 특별한 리프레시 로직이 없지만
+          // 향후 사용자 정보 갱신 등에 사용할 수 있도록 구조만 추가
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              const SizedBox(height: 100),
+              const Center(child: Text('MY 화면 (준비중)')),
+              const SizedBox(height: 20),
+              // 로그아웃 버튼
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => _handleSignOut(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('로그아웃'),
+                  ),
                 ),
-                child: const Text('로그아웃'),
               ),
-            ),
+              const SizedBox(height: 100),
+            ],
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: BottomNav(
         current: NavTab.my,

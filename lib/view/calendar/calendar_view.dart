@@ -53,65 +53,71 @@ class FigmaCalendarPage extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CalendarGrid(
-                            month: vm.currentMonth,
-                            today: vm.today,
-                            selectedDay: vm.selectedDay,
-                            periodCycles: vm.periodCycles,
-                            periodDays: vm.periodDays,
-                            fertileWindowDays: vm.fertileWindowDays,
-                            ovulationDay: vm.ovulationDay,
-                            ovulationDays: vm.ovulationDays,
-                            expectedPeriodDays: vm.expectedPeriodDays,
-                            expectedFertileWindowDays:
-                                vm.expectedFertileWindowDays,
-                            expectedOvulationDay: vm.expectedOvulationDay,
-                            symptomRecordDays: vm.symptomRecordDays,
-                            onSelect: vm.selectDay,
-                          ),
-                          if (!isFutureDate) ...[
-                            const SizedBox(height: AppSpacing.lg),
-                            TodayCard(
-                              selectedDay: vm.selectedDay,
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      await vm.refresh();
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CalendarGrid(
+                              month: vm.currentMonth,
                               today: vm.today,
+                              selectedDay: vm.selectedDay,
                               periodCycles: vm.periodCycles,
                               periodDays: vm.periodDays,
-                              expectedPeriodDays: vm.expectedPeriodDays,
                               fertileWindowDays: vm.fertileWindowDays,
+                              ovulationDay: vm.ovulationDay,
+                              ovulationDays: vm.ovulationDays,
+                              expectedPeriodDays: vm.expectedPeriodDays,
                               expectedFertileWindowDays:
                                   vm.expectedFertileWindowDays,
-                              onPeriodStart: vm.setPeriodStart,
-                              onPeriodEnd: vm.setPeriodEnd,
-                              isStartSelected: startSel,
-                              isEndSelected: endSel,
+                              expectedOvulationDay: vm.expectedOvulationDay,
+                              symptomRecordDays: vm.symptomRecordDays,
+                              onSelect: vm.selectDay,
                             ),
+                            if (!isFutureDate) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              TodayCard(
+                                selectedDay: vm.selectedDay,
+                                today: vm.today,
+                                periodCycles: vm.periodCycles,
+                                periodDays: vm.periodDays,
+                                expectedPeriodDays: vm.expectedPeriodDays,
+                                fertileWindowDays: vm.fertileWindowDays,
+                                expectedFertileWindowDays:
+                                    vm.expectedFertileWindowDays,
+                                onPeriodStart: vm.setPeriodStart,
+                                onPeriodEnd: vm.setPeriodEnd,
+                                isStartSelected: startSel,
+                                isEndSelected: endSel,
+                              ),
+                              const SizedBox(height: AppSpacing.xl),
+                              Text(
+                                '증상',
+                                style: AppTextStyles.title.copyWith(
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              SymptomSection(
+                                categories: vm.symptomCatalog,
+                                selectedLabels: vm.selectedSymptomsFor(
+                                  vm.selectedDay,
+                                ),
+                                onToggle: vm.toggleSymptom,
+                              ),
+                            ],
                             const SizedBox(height: AppSpacing.xl),
-                            Text(
-                              '증상',
-                              style: AppTextStyles.title.copyWith(
-                                fontSize: 16,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            SymptomSection(
-                              categories: vm.symptomCatalog,
-                              selectedLabels: vm.selectedSymptomsFor(
-                                vm.selectedDay,
-                              ),
-                              onToggle: vm.toggleSymptom,
-                            ),
                           ],
-                          const SizedBox(height: AppSpacing.xl),
-                        ],
+                        ),
                       ),
                     ),
                   ),
