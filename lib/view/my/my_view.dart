@@ -12,7 +12,7 @@ class MyView extends StatelessWidget {
   Future<void> _handleSignOut(BuildContext context) async {
     final authViewModel = context.read<AuthViewModel>();
 
-    // 확인 다이얼로그 표시
+    // 로그아웃 확인 다이얼로그 표시
     final shouldSignOut = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -43,6 +43,63 @@ class MyView extends StatelessWidget {
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
+  }
+
+  Future<void> _handleDeleteAccount(BuildContext context) async {
+    final authViewModel = context.read<AuthViewModel>();
+
+    // 계정 삭제 확인 다이얼로그 표시
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        content: const Text('정말 계정을 삭제하시겠습니까?\n삭제된 계정은 복구할 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black.withValues(alpha: 0.5),
+            ),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true && context.mounted) {
+      // 로딩 다이얼로그 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final success = await authViewModel.deleteAccount();
+
+      if (context.mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        if (success) {
+          // 계정 삭제 성공 - 로그인 페이지로 이동
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        } else {
+          // 계정 삭제 실패 - 에러 메시지 표시
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authViewModel.errorMessage ?? '계정 삭제에 실패했습니다.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -128,6 +185,30 @@ class MyView extends StatelessWidget {
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                // 계정 삭제 버튼
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: () =>
+                                        _handleDeleteAccount(context),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                    label: Text(
+                                      '계정 삭제',
+                                      style: AppTextStyles.body.copyWith(
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      alignment: Alignment.centerLeft,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

@@ -191,4 +191,26 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// 계정 삭제
+  Future<bool> deleteAccount() async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _authService.deleteAccount();
+      _currentUser = null;
+      _userModel = null;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('계정 삭제 에러: $e');
+      _errorMessage = '계정 삭제 실패: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

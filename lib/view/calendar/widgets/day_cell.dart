@@ -79,7 +79,8 @@ class DayCell extends StatelessWidget {
       bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.5);
     }
     if (showSelected) {
-      borderColor = AppColors.primary;
+      // 오늘 이후 날짜는 회색 테두리, 그 외는 기본 primary 색상
+      borderColor = isFutureDate ? AppColors.textDisabled : AppColors.primary;
     }
 
     return GestureDetector(

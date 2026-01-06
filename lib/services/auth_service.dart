@@ -250,4 +250,151 @@ class AuthService {
     // 모든 로그아웃 작업 완료 대기
     await Future.wait(futures, eagerError: false);
   }
+
+  /// 계정 삭제 - 탈퇴 회원을 별도 컬렉션으로 이동
+  Future<void> deleteAccount() async {
+    if (_auth == null || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    final user = _auth!.currentUser;
+    if (user == null) {
+      throw Exception('로그인된 사용자가 없습니다.');
+    }
+
+    final userId = user.uid;
+
+    try {
+      // 1. 재인증 (계정 삭제는 민감한 작업이므로 재인증 필요)
+      GoogleSignInAccount? googleUser;
+      try {
+        // 현재 로그인된 Google 계정으로 재인증
+        googleUser = await _googleSignIn.signInSilently();
+        if (googleUser == null) {
+          // 자동 재인증 실패 시 수동 로그인 요청
+          googleUser = await _googleSignIn.signIn();
+        }
+      } catch (e) {
+        debugPrint('Google 재인증 실패: $e');
+        // 수동 로그인 시도
+        googleUser = await _googleSignIn.signIn();
+      }
+
+      if (googleUser == null) {
+        throw Exception('재인증이 취소되었습니다.');
+      }
+
+      // Google 인증 정보 가져오기
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        throw Exception('Google 인증 토큰이 없습니다.');
+      }
+
+      // Firebase Auth에 재인증
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // 2. 사용자 정보 가져오기 (Firestore에 없어도 Firebase Auth 정보 사용)
+      final userModel = await getUserFromFirestore(userId);
+
+      // Firestore에 사용자 정보가 없어도 Firebase Auth 정보로 계정 삭제 진행
+      final userData = userModel != null
+          ? userModel.toMap()
+          : {
+              'uid': userId,
+              'email': user.email ?? '',
+              'displayName': user.displayName,
+              'photoURL': user.photoURL,
+              'birthDate': null,
+              'gender': null,
+              'phoneNumber': null,
+              'createdAt': DateTime.now().toIso8601String(),
+              'updatedAt': DateTime.now().toIso8601String(),
+            };
+
+      // 3. 사용자의 모든 데이터 가져오기
+      final userRef = _firestore!.collection('users').doc(userId);
+      final periodCyclesRef = _firestore!.collection(
+        'users/$userId/periodCycles',
+      );
+      final symptomsRef = _firestore!.collection('users/$userId/symptoms');
+
+      final periodCyclesSnapshot = await periodCyclesRef.get();
+      final symptomsSnapshot = await symptomsRef.get();
+
+      // 4. Firebase Auth에서 사용자 삭제 (먼저 시도)
+      // Auth 삭제가 성공해야만 데이터를 이동시킴
+      await user.delete();
+
+      // 5. Auth 삭제 성공 후 데이터 이동
+      // 탈퇴 회원 정보 생성 (삭제일 추가)
+      final deletedUserData = {
+        ...userData,
+        'deletedAt': DateTime.now().toIso8601String(),
+        'originalUid': userId,
+      };
+
+      // 6. 탈퇴 회원 컬렉션에 데이터 저장
+      final deletedUserRef = _firestore!
+          .collection('deleted_users')
+          .doc(userId);
+      await deletedUserRef.set(deletedUserData);
+
+      // 7. 생리 주기 데이터 이동
+      if (periodCyclesSnapshot.docs.isNotEmpty) {
+        final deletedPeriodCyclesRef = deletedUserRef.collection(
+          'periodCycles',
+        );
+        final batch = _firestore!.batch();
+        for (final doc in periodCyclesSnapshot.docs) {
+          batch.set(deletedPeriodCyclesRef.doc(doc.id), doc.data());
+        }
+        await batch.commit();
+      }
+
+      // 8. 증상 데이터 이동
+      if (symptomsSnapshot.docs.isNotEmpty) {
+        final deletedSymptomsRef = deletedUserRef.collection('symptoms');
+        final batch = _firestore!.batch();
+        for (final doc in symptomsSnapshot.docs) {
+          batch.set(deletedSymptomsRef.doc(doc.id), doc.data());
+        }
+        await batch.commit();
+      }
+
+      // 9. 원본 데이터 삭제
+      final deleteBatch = _firestore!.batch();
+
+      // 생리 주기 데이터 삭제
+      for (final doc in periodCyclesSnapshot.docs) {
+        deleteBatch.delete(doc.reference);
+      }
+
+      // 증상 데이터 삭제
+      for (final doc in symptomsSnapshot.docs) {
+        deleteBatch.delete(doc.reference);
+      }
+
+      // 사용자 정보 삭제
+      deleteBatch.delete(userRef);
+
+      await deleteBatch.commit();
+
+      // 10. Google Sign In 연결 해제
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+
+      // 11. Google Sign In 로그아웃
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+    } catch (e) {
+      debugPrint('계정 삭제 실패: $e');
+      rethrow;
+    }
+  }
 }

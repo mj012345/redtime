@@ -82,8 +82,17 @@ class FigmaCalendarPage extends StatelessWidget {
                               symptomRecordDays: vm.symptomRecordDays,
                               onSelect: vm.selectDay,
                             ),
-                            if (!isFutureDate) ...[
-                              const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(height: AppSpacing.lg),
+                            if (isFutureDate)
+                              Center(
+                                child: Text(
+                                  '미래 날짜입니다.',
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.textDisabled,
+                                  ),
+                                ),
+                              )
+                            else ...[
                               TodayCard(
                                 selectedDay: vm.selectedDay,
                                 today: vm.today,
