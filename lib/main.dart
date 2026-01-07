@@ -92,6 +92,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Period Tracker',
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           fontFamily: 'Pretendard',
           scaffoldBackgroundColor: AppColors.background,

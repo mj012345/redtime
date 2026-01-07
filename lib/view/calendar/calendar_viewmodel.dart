@@ -199,6 +199,13 @@ class CalendarViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setCurrentMonth(DateTime month) {
+    if (currentMonth.year != month.year || currentMonth.month != month.month) {
+      currentMonth = month;
+      notifyListeners();
+    }
+  }
+
   // 생리 시작/종료
   void setPeriodStart() {
     if (selectedDay == null) {

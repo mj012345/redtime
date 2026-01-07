@@ -374,20 +374,35 @@ class ReportView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Container(
-                          height: 220,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xs,
-                            vertical: AppSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.radiusMd,
+                        if (chartData.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.lg,
                             ),
+                            child: Center(
+                              child: Text(
+                                '주기 기록이 없습니다.',
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.textDisabled,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            height: 220,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                              vertical: AppSpacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusMd,
+                              ),
+                            ),
+                            child: ChartPreview(data: chartData),
                           ),
-                          child: ChartPreview(data: chartData),
-                        ),
                         const SizedBox(height: AppSpacing.lg),
                       ],
                     ),

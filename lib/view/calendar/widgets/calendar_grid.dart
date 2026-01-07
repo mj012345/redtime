@@ -42,8 +42,8 @@ class CalendarGrid extends StatelessWidget {
     final firstDay = DateTime(month.year, month.month, 1);
     final startWeekday = firstDay.weekday;
     final startOffset = startWeekday % 7;
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final totalCells = ((startOffset + daysInMonth + 6) ~/ 7) * 7;
+    // 항상 6주(42일)로 고정
+    const totalCells = 42;
     final startDate = firstDay.subtract(Duration(days: startOffset));
 
     final rows = <List<DateTime>>[];
@@ -57,6 +57,7 @@ class CalendarGrid extends StatelessWidget {
     }
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -70,7 +71,7 @@ class CalendarGrid extends StatelessWidget {
                         fontSize: 13,
                         color: (w == '일' || w == '토')
                             ? AppColors.primary
-                            : AppColors.textPrimary,
+                            : AppColors.textPrimary.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -80,11 +81,12 @@ class CalendarGrid extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             for (final row in rows) ...[
               const HorizontalLine(),
               SizedBox(
-                height: 60,
+                height: 50,
                 child: Row(
                   children: row
                       .map(

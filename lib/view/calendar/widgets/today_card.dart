@@ -3,7 +3,6 @@ import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
-import 'badge.dart' as custom_badge;
 import 'toggle_chip.dart';
 
 class TodayCard extends StatelessWidget {
@@ -47,76 +46,67 @@ class TodayCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
-            style: AppTextStyles.title.copyWith(
-              fontSize: 20,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Builder(
-            builder: (context) {
-              final probability = _calculatePregnancyProbability(selectedDay);
-              final periodBadgeText = _periodBadgeText();
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
+                style: AppTextStyles.title.copyWith(
+                  fontSize: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Builder(
+                builder: (context) {
+                  final probability = _calculatePregnancyProbability(
+                    selectedDay,
+                  );
 
-              if (probability == null && periodBadgeText == null) {
-                return const SizedBox.shrink();
-              }
+                  if (probability == null) {
+                    return const SizedBox.shrink();
+                  }
 
-              Color? circleColor;
-              String? text;
+                  Color circleColor;
+                  String text;
 
-              if (probability != null) {
-                switch (probability) {
-                  case '낮음':
-                    circleColor = const Color(0xFFC5C5C5);
-                    text = '임신 확률 낮음';
-                    break;
-                  case '높음':
-                    circleColor = const Color(0xFFA7C4A0);
-                    text = '임신 확률 높음';
-                    break;
-                  default:
-                    circleColor = const Color(0xFFFFD966);
-                    text = '임신 확률 보통';
-                }
-              }
+                  switch (probability) {
+                    case '낮음':
+                      circleColor = const Color(0xFFC5C5C5);
+                      text = '임신 확률 낮음';
+                      break;
+                    case '높음':
+                      circleColor = const Color(0xFFA7C4A0);
+                      text = '임신 확률 높음';
+                      break;
+                    default:
+                      circleColor = const Color(0xFFFFD966);
+                      text = '임신 확률 보통';
+                  }
 
-              return Row(
-                children: [
-                  if (periodBadgeText != null) ...[
-                    custom_badge.Badge(
-                      text: periodBadgeText,
-                      bg: AppColors.primaryLight,
-                      fg: AppColors.secondary,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
-                  if (text != null && circleColor != null)
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: circleColor,
-                            shape: BoxShape.circle,
-                          ),
+                  return Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: circleColor,
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          text,
-                          style: AppTextStyles.body.copyWith(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        text,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
                         ),
-                      ],
-                    ),
-                ],
-              );
-            },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
@@ -195,113 +185,4 @@ class TodayCard extends StatelessWidget {
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  String? _periodBadgeText() {
-    if (selectedDay == null) return null;
-    final d = DateTime(selectedDay!.year, selectedDay!.month, selectedDay!.day);
-
-    for (final c in periodCycles) {
-      if (c.contains(d)) {
-        final start = DateTime(c.start.year, c.start.month, c.start.day);
-        final dayIndex = d.difference(start).inDays + 1;
-        return '생리 시작 $dayIndex일째';
-      }
-    }
-
-    if (expectedPeriodDays.isNotEmpty) {
-      final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
-      DateTime? prev;
-      late DateTime start;
-      late DateTime end;
-      for (final date in sorted) {
-        final isStart = prev == null || date.difference(prev).inDays > 1;
-        if (isStart) {
-          start = date;
-          end = date;
-        } else {
-          end = date;
-        }
-        if (!d.isBefore(start) && !d.isAfter(end)) {
-          return '생일 예정일';
-        }
-        prev = date;
-      }
-    }
-
-    final fertileAll = [...fertileWindowDays, ...expectedFertileWindowDays]
-      ..sort((a, b) => a.compareTo(b));
-
-    DateTime? last;
-    late DateTime blockStart;
-    late DateTime blockEnd;
-    bool hasBlock = false;
-    DateTime? nextFertileStart;
-    DateTime? lastFertileEndBeforeD;
-
-    for (final day in fertileAll) {
-      final isStart = last == null || day.difference(last).inDays > 1;
-      if (isStart) {
-        blockStart = day;
-        blockEnd = day;
-        hasBlock = true;
-      } else {
-        blockEnd = day;
-      }
-
-      if (!hasBlock) {
-        last = day;
-        continue;
-      }
-
-      final start = blockStart;
-      final end = blockEnd;
-
-      final inBlock = !d.isBefore(start) && !d.isAfter(end);
-      if (inBlock) {
-        final dayIndex = d.difference(start).inDays + 1;
-        return '가임기 $dayIndex일째';
-      }
-
-      if (nextFertileStart == null && d.isBefore(start)) {
-        nextFertileStart = start;
-      }
-      if (d.isAfter(end)) {
-        lastFertileEndBeforeD = end;
-      }
-      last = day;
-    }
-
-    DateTime? nextExpectedStart;
-    if (expectedPeriodDays.isNotEmpty) {
-      final sorted = [...expectedPeriodDays]..sort((a, b) => a.compareTo(b));
-      DateTime? prev;
-      for (final date in sorted) {
-        final isStart = prev == null || date.difference(prev).inDays > 1;
-        if (isStart && (date.isAfter(d) || _sameDay(date, d))) {
-          nextExpectedStart = date;
-          break;
-        }
-        prev = date;
-      }
-    }
-
-    if (nextExpectedStart != null && lastFertileEndBeforeD != null) {
-      final diff = nextExpectedStart.difference(d).inDays;
-      if (!d.isBefore(lastFertileEndBeforeD) && diff == 0) {
-        return '생일 예정일';
-      }
-      if (!d.isBefore(lastFertileEndBeforeD) && diff > 0) {
-        return '생리 예정일 $diff일전';
-      }
-    }
-
-    if (nextFertileStart != null) {
-      final diff = nextFertileStart.difference(d).inDays;
-      if (diff > 0) {
-        return '가임기 $diff일전';
-      }
-    }
-
-    return null;
-  }
 }

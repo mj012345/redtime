@@ -64,7 +64,7 @@ class DayCell extends StatelessWidget {
     Color textColor = isOutsideMonth
         ? AppColors.textDisabled.withValues(alpha: 0.5)
         : isFutureDate
-        ? AppColors.textPrimary.withValues(alpha: 0.7)
+        ? AppColors.textPrimary.withValues(alpha: 0.5)
         : AppColors.textPrimary;
     Color? borderColor;
 
@@ -74,9 +74,9 @@ class DayCell extends StatelessWidget {
     } else if (showFertile) {
       bgColor = const Color(0xFFE8F5F6);
     } else if (showExpectedPeriod) {
-      bgColor = AppColors.primaryLight.withValues(alpha: 0.5);
+      bgColor = AppColors.primaryLight.withValues(alpha: 0.3);
     } else if (showExpectedFertile) {
-      bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.5);
+      bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.3);
     }
     if (showSelected) {
       // 오늘 이후 날짜는 회색 테두리, 그 외는 기본 primary 색상
@@ -101,30 +101,17 @@ class DayCell extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
-                const SizedBox(height: 1),
                 SizedBox(
-                  height: 25,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (isToday)
-                        Container(
-                          width: 25,
-                          height: 25,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.border,
-                          ),
-                        ),
-                      Text(
-                        '${date.day}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          color: textColor,
-                        ),
+                  height: 18,
+                  child: Center(
+                    child: Text(
+                      '${date.day}',
+                      style: TextStyle(
+                        fontSize: isToday ? 15 : 13,
+                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w300,
+                        color: textColor,
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 isOutsideMonth
@@ -139,12 +126,12 @@ class DayCell extends StatelessWidget {
                         isExpectedPeriod: showExpectedPeriod,
                         isExpectedPeriodStart: isExpectedPeriodStart,
                       ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
+                  padding: const EdgeInsets.only(bottom: 1),
                   child: SizedBox(
-                    height: 6,
-                    width: 6,
+                    height: 5,
+                    width: 5,
                     child: showRecord
                         ? const DecoratedBox(
                             decoration: BoxDecoration(
@@ -208,7 +195,7 @@ class DayCell extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 14,
+      height: 12,
       child: indicator == null
           ? const SizedBox.shrink()
           : Center(child: indicator),
