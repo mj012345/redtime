@@ -17,6 +17,7 @@ class CalendarGrid extends StatelessWidget {
   final List<DateTime> expectedFertileWindowDays;
   final DateTime? expectedOvulationDay;
   final List<DateTime> symptomRecordDays;
+  final int Function(DateTime) getSymptomCount; // 증상 개수 반환 함수
   final ValueChanged<DateTime> onSelect;
 
   const CalendarGrid({
@@ -33,6 +34,7 @@ class CalendarGrid extends StatelessWidget {
     required this.expectedFertileWindowDays,
     required this.expectedOvulationDay,
     required this.symptomRecordDays,
+    required this.getSymptomCount,
     required this.onSelect,
   });
 
@@ -118,6 +120,7 @@ class CalendarGrid extends StatelessWidget {
                                 selectedDay != null &&
                                 _sameDay(day, selectedDay!),
                             hasRecord: _containsDate(symptomRecordDays, day),
+                            symptomCount: getSymptomCount(day),
                             isPeriodStart: _isRangeStart(periodCycles, day),
                             isPeriodEnd: _isRangeEnd(periodCycles, day),
                             isFertileStart: _isFertileWindowStart(

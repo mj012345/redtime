@@ -14,6 +14,7 @@ class DayCell extends StatelessWidget {
   final bool isToday;
   final bool isSelected;
   final bool hasRecord;
+  final int symptomCount; // 증상 개수 (0이면 표시 안 함)
   final bool isPeriodStart;
   final bool isPeriodEnd;
   final bool isFertileStart;
@@ -33,6 +34,7 @@ class DayCell extends StatelessWidget {
     required this.isToday,
     required this.isSelected,
     required this.hasRecord,
+    this.symptomCount = 0,
     required this.isPeriodStart,
     required this.isPeriodEnd,
     required this.isFertileStart,
@@ -129,18 +131,58 @@ class DayCell extends StatelessWidget {
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 1),
-                  child: SizedBox(
-                    height: 5,
-                    width: 5,
-                    child: showRecord
-                        ? const DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: AppColors.secondary,
-                              shape: BoxShape.circle,
+                  child: showRecord
+                      ? Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            const SizedBox(
+                              height: 5,
+                              width: 5,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                             ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
+                            if (symptomCount > 1)
+                              Positioned(
+                                left: 7,
+                                top: -2,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Text(
+                                      '${symptomCount}',
+                                      style: const TextStyle(
+                                        fontSize: 8,
+                                        height: 1.0,
+                                        color: AppColors.secondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.visible,
+                                    ),
+                                    Positioned(
+                                      right: -4,
+                                      top: -1,
+                                      child: Text(
+                                        '+',
+                                        style: const TextStyle(
+                                          fontSize: 6,
+                                          height: 1.0,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),

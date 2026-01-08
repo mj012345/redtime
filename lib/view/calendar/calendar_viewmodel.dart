@@ -151,6 +151,17 @@ class CalendarViewModel extends ChangeNotifier {
     return _symptomSelections[_dateKey(day)] ?? <String>{};
   }
 
+  // 특정 날짜의 증상 개수 반환
+  int getSymptomCountFor(DateTime? day) {
+    if (day == null || !_isInitialized) return 0;
+    final symptoms = _symptomSelections[_dateKey(day)];
+    if (symptoms == null) return 0;
+    // 메모가 있으면 증상 개수에 포함
+    final memo = _memos[_dateKey(day)];
+    final hasMemo = memo != null && memo.isNotEmpty;
+    return symptoms.length + (hasMemo ? 1 : 0);
+  }
+
   // 증상 데이터 전체 접근 (리포트용)
   Map<String, Set<String>> get symptomSelections =>
       Map<String, Set<String>>.from(

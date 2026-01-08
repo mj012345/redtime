@@ -17,6 +17,7 @@ class WeekRow extends StatelessWidget {
   final List<DateTime> expectedFertileWindowDays;
   final DateTime? expectedOvulationDay;
   final List<DateTime> symptomRecordDays;
+  final int Function(DateTime) getSymptomCount; // 증상 개수 반환 함수
   final ValueChanged<DateTime> onSelect;
 
   const WeekRow({
@@ -33,6 +34,7 @@ class WeekRow extends StatelessWidget {
     required this.expectedFertileWindowDays,
     required this.expectedOvulationDay,
     required this.symptomRecordDays,
+    required this.getSymptomCount,
     required this.onSelect,
   });
 
@@ -80,6 +82,7 @@ class WeekRow extends StatelessWidget {
                       isSelected:
                           selectedDay != null && _sameDay(day, selectedDay!),
                       hasRecord: _containsDate(symptomRecordDays, day),
+                      symptomCount: getSymptomCount(day),
                       isPeriodStart: _isRangeStart(periodCycles, day),
                       isPeriodEnd: _isRangeEnd(periodCycles, day),
                       isFertileStart: _isFertileWindowStart(

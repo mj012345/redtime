@@ -26,6 +26,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
   static const int _basePageIndex = 1000;
   DateTime? _lastSyncedMonth;
   bool _showStickyHeader = false;
+  DateTime? _lastSelectedDay; // 마지막 선택된 날짜 (스크롤 계산용)
 
   @override
   void initState() {
@@ -45,14 +46,42 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
   /// 스크롤 위치에 따라 고정 헤더 표시 여부 결정
   void _onScroll() {
-    final calendarHeight = _getMaxCalendarHeight();
-    final shouldShow = _scrollController.offset > calendarHeight;
+    if (_lastSelectedDay == null) return;
+
+    final scrollOffset = _scrollController.offset;
+    final shouldShow = _isSelectedWeekOutOfView(scrollOffset, _lastSelectedDay);
 
     if (_showStickyHeader != shouldShow) {
       setState(() {
         _showStickyHeader = shouldShow;
       });
     }
+  }
+
+  /// 선택한 주간이 화면에서 벗어났는지 확인
+  bool _isSelectedWeekOutOfView(double scrollOffset, DateTime? selectedDay) {
+    if (selectedDay == null) return false;
+
+    const headerHeight = 35.0;
+    const spacing = 5.0;
+    const rowHeight = 51.0;
+
+    // 선택한 날짜가 포함된 주가 달력 그리드에서 몇 번째 주인지 계산
+    final firstDay = DateTime(selectedDay.year, selectedDay.month, 1);
+    final startWeekday = firstDay.weekday;
+    final startOffset = startWeekday % 7;
+    final startDate = firstDay.subtract(Duration(days: startOffset));
+
+    // 선택한 날짜가 달력 그리드에서 몇 번째 날인지 계산
+    final daysFromStart = selectedDay.difference(startDate).inDays;
+    final weekIndex = daysFromStart ~/ 7;
+
+    // 선택한 주의 Y 위치 계산
+    final weekYPosition = headerHeight + spacing + (weekIndex * rowHeight);
+
+    // 스크롤 오프셋이 선택한 주의 위치를 넘어갔는지 확인
+    // 약간의 여유를 두기 위해 rowHeight만큼 더 확인
+    return scrollOffset > weekYPosition + rowHeight;
   }
 
   /// 최대 달력 높이 반환 (6주 달력 기준)
@@ -166,6 +195,14 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
           final selectedDay = vm.selectedDay;
           final today = vm.today;
 
+          // 선택된 날짜가 변경되면 스크롤 위치 다시 확인
+          if (_lastSelectedDay != selectedDay) {
+            _lastSelectedDay = selectedDay;
+            if (_scrollController.hasClients) {
+              _onScroll();
+            }
+          }
+
           final isFutureDate =
               selectedDay != null &&
               DateTime(
@@ -192,6 +229,16 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                           vm.today,
                         );
                         _pageController.jumpToPage(todayIndex);
+                      }
+                    },
+                    onMonthSelected: (selectedMonth) {
+                      vm.setCurrentMonth(selectedMonth);
+                      if (_pageController.hasClients) {
+                        final selectedIndex = _getIndexFromMonth(
+                          selectedMonth,
+                          vm.today,
+                        );
+                        _pageController.jumpToPage(selectedIndex);
                       }
                     },
                   ),
@@ -222,6 +269,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                     vm.expectedFertileWindowDays,
                                 expectedOvulationDay: vm.expectedOvulationDay,
                                 symptomRecordDays: vm.symptomRecordDays,
+                                getSymptomCount: vm.getSymptomCountFor,
                                 onSelect: vm.selectDay,
                               ),
                             ),
@@ -277,6 +325,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                               vm.expectedOvulationDay,
                                           symptomRecordDays:
                                               vm.symptomRecordDays,
+                                          getSymptomCount:
+                                              vm.getSymptomCountFor,
                                           onSelect: vm.selectDay,
                                         );
                                       },
@@ -392,6 +442,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
   final List<DateTime> expectedFertileWindowDays;
   final DateTime? expectedOvulationDay;
   final List<DateTime> symptomRecordDays;
+  final int Function(DateTime) getSymptomCount;
   final ValueChanged<DateTime> onSelect;
 
   _StickyWeekHeaderDelegate({
@@ -407,6 +458,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.expectedFertileWindowDays,
     required this.expectedOvulationDay,
     required this.symptomRecordDays,
+    required this.getSymptomCount,
     required this.onSelect,
   });
 
@@ -442,6 +494,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
               expectedFertileWindowDays: expectedFertileWindowDays,
               expectedOvulationDay: expectedOvulationDay,
               symptomRecordDays: symptomRecordDays,
+              getSymptomCount: getSymptomCount,
               onSelect: onSelect,
             ),
           ),
