@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
@@ -10,6 +11,7 @@ import 'widgets/calendar_grid.dart';
 import 'widgets/today_card.dart';
 import 'widgets/symptom_section.dart';
 import 'widgets/memo_bottom_sheet.dart';
+import 'widgets/week_row.dart';
 
 class FigmaCalendarPage extends StatefulWidget {
   const FigmaCalendarPage({super.key});
@@ -20,37 +22,61 @@ class FigmaCalendarPage extends StatefulWidget {
 
 class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
   late PageController _pageController;
-  static const int _basePageIndex = 1000; // 중간 지점을 기준으로 설정
-  DateTime? _lastSyncedMonth; // 마지막으로 동기화된 월 (무한 루프 방지)
-
-  // 달력 하단 패딩 (별도 설정 가능)
-  static const double _calendarBottomPadding = 0;
+  late ScrollController _scrollController;
+  static const int _basePageIndex = 1000;
+  DateTime? _lastSyncedMonth;
+  bool _showStickyHeader = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _basePageIndex);
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  /// 최대 달력 높이 반환 (6주 달력 기준 - 카드 영역 고정을 위해)
+  /// 스크롤 위치에 따라 고정 헤더 표시 여부 결정
+  void _onScroll() {
+    final calendarHeight = _getMaxCalendarHeight();
+    final shouldShow = _scrollController.offset > calendarHeight;
+
+    if (_showStickyHeader != shouldShow) {
+      setState(() {
+        _showStickyHeader = shouldShow;
+      });
+    }
+  }
+
+  /// 최대 달력 높이 반환 (6주 달력 기준)
   double _getMaxCalendarHeight() {
     const headerHeight = 35.0;
     const spacing = 5.0;
-    const rowHeight = 51.0; // 각 주의 높이 (HorizontalLine 1px + SizedBox 50px)
+    const rowHeight = 51.0;
     const lastLineHeight = 1.0;
-    const maxRowCount = 6; // 최대 6주
+    const maxRowCount = 6;
 
-    return headerHeight +
-        spacing +
-        (maxRowCount * rowHeight) +
-        lastLineHeight +
-        _calendarBottomPadding;
+    return headerHeight + spacing + (maxRowCount * rowHeight) + lastLineHeight;
+  }
+
+  /// 선택된 날짜가 포함된 주를 계산
+  List<DateTime> _getWeekForDate(DateTime? date) {
+    if (date == null) return [];
+
+    final weekday = date.weekday % 7;
+    final weekStart = date.subtract(Duration(days: weekday));
+
+    return List.generate(7, (index) {
+      final day = weekStart.add(Duration(days: index));
+      return DateTime(day.year, day.month, day.day);
+    });
   }
 
   /// 페이지 인덱스를 DateTime(년, 월)로 변환
@@ -66,6 +92,38 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
     final monthDiff =
         (month.year - baseMonth.year) * 12 + (month.month - baseMonth.month);
     return _basePageIndex + monthDiff;
+  }
+
+  /// 페이지 이동 헬퍼
+  void _jumpToPage(int offset) {
+    if (_pageController.hasClients) {
+      final currentPage = _pageController.page?.round() ?? _basePageIndex;
+      _pageController.jumpToPage(currentPage + offset);
+    }
+  }
+
+  /// 메모 존재 여부 확인
+  bool _hasMemo(CalendarViewModel vm, DateTime? day) {
+    final memo = vm.getMemoFor(day);
+    return memo != null && memo.isNotEmpty;
+  }
+
+  /// 메모 바텀시트 표시
+  void _showMemoBottomSheet(
+    BuildContext context,
+    CalendarViewModel vm,
+    DateTime? day,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MemoBottomSheet(
+        initialMemo: vm.getMemoFor(day),
+        onSave: vm.saveMemo,
+        onDelete: vm.deleteMemo,
+      ),
+    );
   }
 
   @override
@@ -105,15 +163,16 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
           final startSel = vm.isSelectedDayStart();
           final endSel = vm.isSelectedDayEnd();
+          final selectedDay = vm.selectedDay;
+          final today = vm.today;
 
-          // 선택된 날짜가 오늘 이후인지 확인 (날짜만 비교)
           final isFutureDate =
-              vm.selectedDay != null &&
+              selectedDay != null &&
               DateTime(
-                vm.selectedDay!.year,
-                vm.selectedDay!.month,
-                vm.selectedDay!.day,
-              ).isAfter(DateTime(vm.today.year, vm.today.month, vm.today.day));
+                selectedDay.year,
+                selectedDay.month,
+                selectedDay.day,
+              ).isAfter(DateTime(today.year, today.month, today.day));
 
           return Scaffold(
             backgroundColor: AppColors.background,
@@ -123,20 +182,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                   const SizedBox(height: AppSpacing.xs),
                   MonthHeader(
                     month: vm.currentMonth,
-                    onPrev: () {
-                      if (_pageController.hasClients) {
-                        final currentPage =
-                            _pageController.page?.round() ?? _basePageIndex;
-                        _pageController.jumpToPage(currentPage - 1);
-                      }
-                    },
-                    onNext: () {
-                      if (_pageController.hasClients) {
-                        final currentPage =
-                            _pageController.page?.round() ?? _basePageIndex;
-                        _pageController.jumpToPage(currentPage + 1);
-                      }
-                    },
+                    onPrev: () => _jumpToPage(-1),
+                    onNext: () => _jumpToPage(1),
                     onToday: () {
                       vm.goToday(); // selectedDay도 오늘로 설정
                       if (_pageController.hasClients) {
@@ -154,124 +201,140 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                       onRefresh: () async {
                         await vm.refresh();
                       },
-                      child: SingleChildScrollView(
+                      child: CustomScrollView(
+                        controller: _scrollController,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 달력 영역만 PageView로 감싸서 좌우 스크롤 가능하게
-                              // 카드 영역 고정을 위해 최대 높이(6주)로 고정
-                              SizedBox(
-                                height: _getMaxCalendarHeight(),
-                                child: PageView.builder(
-                                  controller: _pageController,
-                                  physics: const PageScrollPhysics(),
-                                  onPageChanged: (index) {
-                                    final month = _getMonthFromIndex(
-                                      index,
-                                      vm.today,
-                                    );
-                                    if (vm.currentMonth.year != month.year ||
-                                        vm.currentMonth.month != month.month) {
-                                      _lastSyncedMonth = month;
-                                      vm.setCurrentMonth(month);
-                                    }
-                                  },
-                                  itemBuilder: (context, index) {
-                                    final month = _getMonthFromIndex(
-                                      index,
-                                      vm.today,
-                                    );
-                                    return CalendarGrid(
-                                      month: month,
-                                      today: vm.today,
-                                      selectedDay: vm.selectedDay,
-                                      periodCycles: vm.periodCycles,
-                                      periodDays: vm.periodDays,
-                                      fertileWindowDays: vm.fertileWindowDays,
-                                      ovulationDay: vm.ovulationDay,
-                                      ovulationDays: vm.ovulationDays,
-                                      expectedPeriodDays: vm.expectedPeriodDays,
-                                      expectedFertileWindowDays:
-                                          vm.expectedFertileWindowDays,
-                                      expectedOvulationDay:
-                                          vm.expectedOvulationDay,
-                                      symptomRecordDays: vm.symptomRecordDays,
-                                      onSelect: vm.selectDay,
-                                    );
-                                  },
-                                ),
+                        slivers: [
+                          if (selectedDay != null && _showStickyHeader)
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _StickyWeekHeaderDelegate(
+                                week: _getWeekForDate(selectedDay),
+                                today: today,
+                                selectedDay: selectedDay,
+                                periodCycles: vm.periodCycles,
+                                periodDays: vm.periodDays,
+                                fertileWindowDays: vm.fertileWindowDays,
+                                ovulationDay: vm.ovulationDay,
+                                ovulationDays: vm.ovulationDays,
+                                expectedPeriodDays: vm.expectedPeriodDays,
+                                expectedFertileWindowDays:
+                                    vm.expectedFertileWindowDays,
+                                expectedOvulationDay: vm.expectedOvulationDay,
+                                symptomRecordDays: vm.symptomRecordDays,
+                                onSelect: vm.selectDay,
                               ),
-                              if (isFutureDate)
-                                Center(
-                                  child: Text(
-                                    '미래 날짜입니다.',
-                                    style: AppTextStyles.body.copyWith(
-                                      color: AppColors.textDisabled,
+                            ),
+                          // 나머지 내용
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 달력 영역만 PageView로 감싸서 좌우 스크롤 가능하게
+                                  // 카드 영역 고정을 위해 최대 높이(6주)로 고정
+                                  SizedBox(
+                                    height: _getMaxCalendarHeight(),
+                                    child: PageView.builder(
+                                      controller: _pageController,
+                                      physics: const PageScrollPhysics(),
+                                      onPageChanged: (index) {
+                                        final month = _getMonthFromIndex(
+                                          index,
+                                          vm.today,
+                                        );
+                                        if (vm.currentMonth.year !=
+                                                month.year ||
+                                            vm.currentMonth.month !=
+                                                month.month) {
+                                          _lastSyncedMonth = month;
+                                          vm.setCurrentMonth(month);
+                                        }
+                                      },
+                                      itemBuilder: (context, index) {
+                                        final month = _getMonthFromIndex(
+                                          index,
+                                          vm.today,
+                                        );
+                                        return CalendarGrid(
+                                          month: month,
+                                          today: vm.today,
+                                          selectedDay: vm.selectedDay,
+                                          periodCycles: vm.periodCycles,
+                                          periodDays: vm.periodDays,
+                                          fertileWindowDays:
+                                              vm.fertileWindowDays,
+                                          ovulationDay: vm.ovulationDay,
+                                          ovulationDays: vm.ovulationDays,
+                                          expectedPeriodDays:
+                                              vm.expectedPeriodDays,
+                                          expectedFertileWindowDays:
+                                              vm.expectedFertileWindowDays,
+                                          expectedOvulationDay:
+                                              vm.expectedOvulationDay,
+                                          symptomRecordDays:
+                                              vm.symptomRecordDays,
+                                          onSelect: vm.selectDay,
+                                        );
+                                      },
                                     ),
                                   ),
-                                )
-                              else ...[
-                                TodayCard(
-                                  selectedDay: vm.selectedDay,
-                                  today: vm.today,
-                                  periodCycles: vm.periodCycles,
-                                  periodDays: vm.periodDays,
-                                  expectedPeriodDays: vm.expectedPeriodDays,
-                                  fertileWindowDays: vm.fertileWindowDays,
-                                  expectedFertileWindowDays:
-                                      vm.expectedFertileWindowDays,
-                                  onPeriodStart: vm.setPeriodStart,
-                                  onPeriodEnd: vm.setPeriodEnd,
-                                  isStartSelected: startSel,
-                                  isEndSelected: endSel,
-                                ),
-                                const SizedBox(height: AppSpacing.xl),
-                                Text(
-                                  '증상',
-                                  style: AppTextStyles.title.copyWith(
-                                    fontSize: 16,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                SymptomSection(
-                                  categories: vm.symptomCatalog,
-                                  selectedLabels: vm.selectedSymptomsFor(
-                                    vm.selectedDay,
-                                  ),
-                                  onToggle: vm.toggleSymptom,
-                                  hasMemo:
-                                      vm.getMemoFor(vm.selectedDay) != null &&
-                                      vm.getMemoFor(vm.selectedDay)!.isNotEmpty,
-                                  onMemoTap: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (context) => MemoBottomSheet(
-                                        initialMemo: vm.getMemoFor(
-                                          vm.selectedDay,
+                                  if (isFutureDate)
+                                    Center(
+                                      child: Text(
+                                        '미래 날짜입니다.',
+                                        style: AppTextStyles.body.copyWith(
+                                          color: AppColors.textDisabled,
                                         ),
-                                        onSave: (memo) {
-                                          vm.saveMemo(memo);
-                                        },
-                                        onDelete: () {
-                                          vm.deleteMemo();
-                                        },
                                       ),
-                                    );
-                                  },
-                                ),
-                              ],
-                              const SizedBox(height: AppSpacing.xl),
-                            ],
+                                    )
+                                  else ...[
+                                    TodayCard(
+                                      selectedDay: selectedDay,
+                                      today: today,
+                                      periodCycles: vm.periodCycles,
+                                      periodDays: vm.periodDays,
+                                      expectedPeriodDays: vm.expectedPeriodDays,
+                                      fertileWindowDays: vm.fertileWindowDays,
+                                      expectedFertileWindowDays:
+                                          vm.expectedFertileWindowDays,
+                                      onPeriodStart: vm.setPeriodStart,
+                                      onPeriodEnd: vm.setPeriodEnd,
+                                      isStartSelected: startSel,
+                                      isEndSelected: endSel,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xl),
+                                    Text(
+                                      '증상',
+                                      style: AppTextStyles.title.copyWith(
+                                        fontSize: 16,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    SymptomSection(
+                                      categories: vm.symptomCatalog,
+                                      selectedLabels: vm.selectedSymptomsFor(
+                                        selectedDay,
+                                      ),
+                                      onToggle: vm.toggleSymptom,
+                                      hasMemo: _hasMemo(vm, selectedDay),
+                                      onMemoTap: () => _showMemoBottomSheet(
+                                        context,
+                                        vm,
+                                        selectedDay,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: AppSpacing.xl),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -312,5 +375,101 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
         ),
       );
     }
+  }
+}
+
+/// 선택된 날짜가 포함된 주를 고정 헤더로 표시하는 Delegate
+class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final List<DateTime> week;
+  final DateTime today;
+  final DateTime? selectedDay;
+  final List<PeriodCycle> periodCycles;
+  final List<DateTime> periodDays;
+  final List<DateTime> fertileWindowDays;
+  final DateTime? ovulationDay;
+  final List<DateTime> ovulationDays;
+  final List<DateTime> expectedPeriodDays;
+  final List<DateTime> expectedFertileWindowDays;
+  final DateTime? expectedOvulationDay;
+  final List<DateTime> symptomRecordDays;
+  final ValueChanged<DateTime> onSelect;
+
+  _StickyWeekHeaderDelegate({
+    required this.week,
+    required this.today,
+    required this.selectedDay,
+    required this.periodCycles,
+    required this.periodDays,
+    required this.fertileWindowDays,
+    required this.ovulationDay,
+    required this.ovulationDays,
+    required this.expectedPeriodDays,
+    required this.expectedFertileWindowDays,
+    required this.expectedOvulationDay,
+    required this.symptomRecordDays,
+    required this.onSelect,
+  });
+
+  @override
+  double get minExtent => 61.0;
+
+  @override
+  double get maxExtent => 61.0;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: AppColors.background,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: WeekRow(
+              week: week,
+              today: today,
+              selectedDay: selectedDay,
+              periodCycles: periodCycles,
+              periodDays: periodDays,
+              fertileWindowDays: fertileWindowDays,
+              ovulationDay: ovulationDay,
+              ovulationDays: ovulationDays,
+              expectedPeriodDays: expectedPeriodDays,
+              expectedFertileWindowDays: expectedFertileWindowDays,
+              expectedOvulationDay: expectedOvulationDay,
+              symptomRecordDays: symptomRecordDays,
+              onSelect: onSelect,
+            ),
+          ),
+          // 그라데이션 배경
+          Container(
+            height: 10,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.border,
+                  AppColors.border.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyWeekHeaderDelegate oldDelegate) {
+    return week != oldDelegate.week ||
+        selectedDay != oldDelegate.selectedDay ||
+        periodDays != oldDelegate.periodDays ||
+        fertileWindowDays != oldDelegate.fertileWindowDays ||
+        symptomRecordDays != oldDelegate.symptomRecordDays;
   }
 }
