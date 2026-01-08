@@ -8,12 +8,16 @@ class SymptomSection extends StatelessWidget {
   final List<SymptomCategory> categories;
   final Set<String> selectedLabels;
   final ValueChanged<String> onToggle;
+  final VoidCallback? onMemoTap;
+  final bool hasMemo;
 
   const SymptomSection({
     super.key,
     required this.categories,
     required this.selectedLabels,
     required this.onToggle,
+    this.onMemoTap,
+    this.hasMemo = false,
   });
 
   @override
@@ -27,6 +31,8 @@ class SymptomSection extends StatelessWidget {
             groups: categories[i].groups,
             selectedLabels: selectedLabels,
             onToggle: onToggle,
+            onMemoTap: onMemoTap,
+            hasMemo: hasMemo,
           ),
           if (i != categories.length - 1) const SizedBox(height: 12),
         ],
@@ -40,12 +46,16 @@ class _Category extends StatelessWidget {
   final List<List<String>> groups;
   final Set<String> selectedLabels;
   final ValueChanged<String> onToggle;
+  final VoidCallback? onMemoTap;
+  final bool hasMemo;
 
   const _Category({
     required this.title,
     required this.groups,
     required this.selectedLabels,
     required this.onToggle,
+    this.onMemoTap,
+    this.hasMemo = false,
   });
 
   @override
@@ -83,8 +93,11 @@ class _Category extends StatelessWidget {
                 .map(
                   (label) => SymptomChip(
                     label: label,
-                    selected: selectedLabels.contains(label),
+                    selected: label == '메모'
+                        ? hasMemo
+                        : selectedLabels.contains(label),
                     onTap: () => onToggle(label),
+                    onMemoTap: label == '메모' ? onMemoTap : null,
                   ),
                 )
                 .toList(),

@@ -266,36 +266,47 @@ class AuthService {
 
     try {
       // 1. 재인증 (계정 삭제는 민감한 작업이므로 재인증 필요)
-      GoogleSignInAccount? googleUser;
-      try {
-        // 현재 로그인된 Google 계정으로 재인증
-        googleUser = await _googleSignIn.signInSilently();
-        if (googleUser == null) {
-          // 자동 재인증 실패 시 수동 로그인 요청
+      // 사용자의 로그인 제공자 확인
+      final providerId = user.providerData.isNotEmpty
+          ? user.providerData.first.providerId
+          : '';
+
+      if (providerId == 'google.com') {
+        // Google 로그인 사용자
+        GoogleSignInAccount? googleUser;
+        try {
+          // 현재 로그인된 Google 계정으로 재인증
+          googleUser = await _googleSignIn.signInSilently();
+          if (googleUser == null) {
+            // 자동 재인증 실패 시 수동 로그인 요청
+            googleUser = await _googleSignIn.signIn();
+          }
+        } catch (e) {
+          debugPrint('Google 재인증 실패: $e');
+          // 수동 로그인 시도
           googleUser = await _googleSignIn.signIn();
         }
-      } catch (e) {
-        debugPrint('Google 재인증 실패: $e');
-        // 수동 로그인 시도
-        googleUser = await _googleSignIn.signIn();
-      }
 
-      if (googleUser == null) {
-        throw Exception('재인증이 취소되었습니다.');
-      }
+        if (googleUser == null) {
+          throw Exception('재인증이 취소되었습니다.');
+        }
 
-      // Google 인증 정보 가져오기
-      final googleAuth = await googleUser.authentication;
-      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw Exception('Google 인증 토큰이 없습니다.');
-      }
+        // Google 인증 정보 가져오기
+        final googleAuth = await googleUser.authentication;
+        if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+          throw Exception('Google 인증 토큰이 없습니다.');
+        }
 
-      // Firebase Auth에 재인증
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      await user.reauthenticateWithCredential(credential);
+        // Firebase Auth에 재인증
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+      } else {
+        // 기타 제공자 또는 알 수 없는 경우
+        throw Exception('지원하지 않는 로그인 방식입니다.');
+      }
 
       // 2. 사용자 정보 가져오기 (Firestore에 없어도 Firebase Auth 정보 사용)
       final userModel = await getUserFromFirestore(userId);
@@ -383,15 +394,16 @@ class AuthService {
 
       await deleteBatch.commit();
 
-      // 10. Google Sign In 연결 해제
-      try {
-        await _googleSignIn.disconnect();
-      } catch (_) {}
+      // 10. Google Sign In 연결 해제 (Google 로그인 사용자인 경우만)
+      if (providerId == 'google.com') {
+        try {
+          await _googleSignIn.disconnect();
+        } catch (_) {}
 
-      // 11. Google Sign In 로그아웃
-      try {
-        await _googleSignIn.signOut();
-      } catch (_) {}
+        try {
+          await _googleSignIn.signOut();
+        } catch (_) {}
+      }
     } catch (e) {
       debugPrint('계정 삭제 실패: $e');
       rethrow;

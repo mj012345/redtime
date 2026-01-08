@@ -9,6 +9,7 @@ import 'widgets/month_header.dart';
 import 'widgets/calendar_grid.dart';
 import 'widgets/today_card.dart';
 import 'widgets/symptom_section.dart';
+import 'widgets/memo_bottom_sheet.dart';
 
 class FigmaCalendarPage extends StatefulWidget {
   const FigmaCalendarPage({super.key});
@@ -244,6 +245,27 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                     vm.selectedDay,
                                   ),
                                   onToggle: vm.toggleSymptom,
+                                  hasMemo:
+                                      vm.getMemoFor(vm.selectedDay) != null &&
+                                      vm.getMemoFor(vm.selectedDay)!.isNotEmpty,
+                                  onMemoTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (context) => MemoBottomSheet(
+                                        initialMemo: vm.getMemoFor(
+                                          vm.selectedDay,
+                                        ),
+                                        onSave: (memo) {
+                                          vm.saveMemo(memo);
+                                        },
+                                        onDelete: () {
+                                          vm.deleteMemo();
+                                        },
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                               const SizedBox(height: AppSpacing.xl),

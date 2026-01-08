@@ -34,12 +34,14 @@ class CalendarViewModel extends ChangeNotifier {
       List<PeriodCycle> newPeriodCycles = [];
 
       // Firebase Repository인 경우 서버에서 강제로 최신 데이터 가져오기
+      Map<String, String> newMemos = {};
       if (_symptomRepo is FirebaseSymptomRepository) {
-        newSymptomSelections = await (_symptomRepo).loadAsync(
-          forceRefresh: true,
-        );
+        final repo = _symptomRepo;
+        newSymptomSelections = await repo.loadAsync(forceRefresh: true);
+        newMemos = await repo.loadMemosAsync(forceRefresh: true);
       } else {
         newSymptomSelections = _symptomRepo.loadSelections();
+        newMemos = _symptomRepo.loadMemos();
       }
 
       if (_periodRepo is FirebasePeriodRepository) {
@@ -50,6 +52,7 @@ class CalendarViewModel extends ChangeNotifier {
 
       // 가져온 데이터로 덮어쓰기 (빈 데이터여도)
       _symptomSelections = newSymptomSelections;
+      _memos = newMemos;
       periodCycles = newPeriodCycles;
 
       _recomputeSymptomRecordDays();
@@ -60,6 +63,7 @@ class CalendarViewModel extends ChangeNotifier {
       debugPrint('CalendarViewModel 리프레시 에러: $e');
       // 에러 발생 시 빈 데이터로 초기화 (기존 데이터 유지하지 않음)
       _symptomSelections = {};
+      _memos = {};
       periodCycles = [];
       _recomputeSymptomRecordDays();
       _recomputePeriodDays();
@@ -90,6 +94,7 @@ class CalendarViewModel extends ChangeNotifier {
   // 증상 기록
   List<DateTime> symptomRecordDays = [];
   Map<String, Set<String>> _symptomSelections = {}; // late final 제거, 초기값 설정
+  Map<String, String> _memos = {}; // 날짜별 메모 저장
   bool _isInitialized = false; // 초기화 상태 추적
   final PeriodRepository _periodRepo;
   final SymptomRepository _symptomRepo;
@@ -98,18 +103,22 @@ class CalendarViewModel extends ChangeNotifier {
   // 증상 카테고리 정의
   final List<SymptomCategory> symptomCatalog = const [
     SymptomCategory('통증', [
-      ['두통', '어깨', '허리', '생리통', '팔', '다리'],
+      ['좋음', '두통', '어깨', '등', '가슴', '허리', '생리통', '팔', '다리', '관절'],
     ]),
     SymptomCategory('소화', [
-      ['변비', '설사', '가스/복부팽만', '메스꺼움'],
+      ['좋음', '변비', '설사', '가스/복부팽만', '메스꺼움'],
     ]),
-    SymptomCategory('컨디션', [
-      ['피로', '집중력 저하', '불면증'],
-      ['식욕', '성욕', '분비물', '질건조', '질가려움'],
-      ['피부 건조', '피부 가려움', '뾰루지'],
+    SymptomCategory('컨디션/욕구', [
+      ['좋음', '피로', '몸살', '감기', '집중력저하', '불면증', '식욕', '성욕'],
+    ]),
+    SymptomCategory('피부', [
+      ['좋음', '뾰루지', '각질', '유분과다', '피부건조', '피부가려움'],
+    ]),
+    SymptomCategory('질상태', [
+      ['좋음', '질분비물', '질건조', '질가려움', '질염'],
     ]),
     SymptomCategory('기분', [
-      ['행복', '불안', '우울', '슬픔', '분노'],
+      ['좋음', '짜증', '불안', '우울', '슬픔', '분노'],
     ]),
     SymptomCategory('기타', [
       ['관계', '메모'],
@@ -169,9 +178,57 @@ class CalendarViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 메모 관련 메서드
+  String? getMemoFor(DateTime? day) {
+    if (day == null || !_isInitialized) return null;
+    return _memos[_dateKey(day)];
+  }
+
+  void saveMemo(String memo) {
+    if (selectedDay == null) return;
+    final key = _dateKey(selectedDay!);
+
+    if (memo.trim().isEmpty) {
+      _memos.remove(key);
+      _symptomRepo.deleteMemo(key);
+    } else {
+      _memos[key] = memo;
+      _symptomRepo.saveMemo(key, memo);
+    }
+
+    _recomputeSymptomRecordDays();
+    notifyListeners();
+  }
+
+  void deleteMemo() {
+    if (selectedDay == null) return;
+    final key = _dateKey(selectedDay!);
+    _memos.remove(key);
+    _symptomRepo.deleteMemo(key);
+    _recomputeSymptomRecordDays();
+    notifyListeners();
+  }
+
   void _recomputeSymptomRecordDays() {
-    symptomRecordDays = _symptomSelections.keys.map(_parseDateKey).toList()
-      ..sort((a, b) => a.compareTo(b));
+    // 증상 기록 날짜와 메모 기록 날짜를 합침
+    final allRecordDays = <DateTime>{};
+
+    // 증상 기록이 있는 날짜 추가
+    for (final key in _symptomSelections.keys) {
+      if (_symptomSelections[key]?.isNotEmpty == true) {
+        allRecordDays.add(_parseDateKey(key));
+      }
+    }
+
+    // 메모가 있는 날짜 추가
+    for (final key in _memos.keys) {
+      final memo = _memos[key];
+      if (memo != null && memo.trim().isNotEmpty) {
+        allRecordDays.add(_parseDateKey(key));
+      }
+    }
+
+    symptomRecordDays = allRecordDays.toList()..sort((a, b) => a.compareTo(b));
   }
 
   // 날짜 선택/월 이동

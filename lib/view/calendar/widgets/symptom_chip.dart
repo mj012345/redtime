@@ -5,26 +5,31 @@ class SymptomChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onMemoTap;
 
   const SymptomChip({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.onMemoTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final fillColor = selected ? AppColors.primaryLight : Colors.white;
-    final borderColor = selected ? AppColors.primary : AppColors.border;
+    final borderColor = selected
+        ? AppColors.primary.withValues(alpha: 0.1)
+        : AppColors.border;
     final textColor = selected ? AppColors.primary : AppColors.textSecondary;
+    final isMemo = label == '메모';
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         key: Key('symptom_$label'),
         borderRadius: BorderRadius.circular(30),
-        onTap: onTap,
+        onTap: isMemo && onMemoTap != null ? onMemoTap : onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -32,20 +37,19 @@ class SymptomChip extends StatelessWidget {
             color: fillColor,
             border: Border.all(color: borderColor),
             borderRadius: BorderRadius.circular(30),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: AppColors.shadowChip,
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
-          child: Text(label, style: TextStyle(fontSize: 12, color: textColor)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: textColor)),
+              if (isMemo && onMemoTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.edit_note, size: 14, color: textColor),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
-

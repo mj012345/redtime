@@ -3,14 +3,19 @@ import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
+import 'package:red_time_app/view/auth/widgets/social_login_button.dart';
 
 /// 구글 로그인 화면
 class LoginView extends StatelessWidget {
   const LoginView({super.key});
 
-  Future<void> _handleGoogleSignIn(BuildContext context) async {
+  /// 공통 로그인 핸들러
+  Future<void> _handleSignIn(
+    BuildContext context,
+    Future<bool> Function() signInFunction,
+  ) async {
     final authViewModel = context.read<AuthViewModel>();
-    final success = await authViewModel.signInWithGoogle();
+    final success = await signInFunction();
 
     if (success && context.mounted) {
       // 로그인 성공 시 달력 화면으로 이동
@@ -75,61 +80,40 @@ class LoginView extends StatelessWidget {
                   const SizedBox(height: 5),
                   Consumer<AuthViewModel>(
                     builder: (context, authViewModel, child) {
-                      return SizedBox(
-                        height: 58,
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(color: Color(0xFFE0E0E0)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          onPressed: authViewModel.isLoading
-                              ? null
-                              : () => _handleGoogleSignIn(context),
-                          child: authViewModel.isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Image.network(
-                                        'https://developers.google.com/identity/images/g-logo.png',
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                              Icons.g_mobiledata,
-                                              color: Color(0xFF4285F4),
-                                              size: 26,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Text(
-                                      '구글 로그인',
-                                      style: AppTextStyles.body.copyWith(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF3D3A3A),
-                                      ),
-                                    ),
-                                  ],
+                      final isLoading = authViewModel.isLoading;
+
+                      return Column(
+                        children: [
+                          // Google 로그인 버튼
+                          SocialLoginButton(
+                            label: '구글 로그인',
+                            icon: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Image.network(
+                                'https://developers.google.com/identity/images/g-logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.g_mobiledata,
+                                  color: Color(0xFF4285F4),
+                                  size: 26,
                                 ),
-                        ),
+                              ),
+                            ),
+                            onPressed: () => _handleSignIn(
+                              context,
+                              () => authViewModel.signInWithGoogle(),
+                            ),
+                            isLoading: isLoading,
+                            backgroundColor: Colors.white,
+                            borderColor: const Color(0xFFE0E0E0),
+                            textColor: const Color(0xFF3D3A3A),
+                          ),
+                        ],
                       );
                     },
                   ),

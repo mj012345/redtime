@@ -5,11 +5,15 @@ import 'package:red_time_app/services/firebase_service.dart';
 abstract class SymptomRepository {
   Map<String, Set<String>> loadSelections();
   void saveSelections(Map<String, Set<String>> selections);
+  Map<String, String> loadMemos();
+  void saveMemo(String dateKey, String memo);
+  void deleteMemo(String dateKey);
 }
 
 /// 기본 인메모리 구현 (임시 저장 용)
 class InMemorySymptomRepository implements SymptomRepository {
   Map<String, Set<String>> _store = {};
+  Map<String, String> _memos = {};
 
   @override
   Map<String, Set<String>> loadSelections() =>
@@ -18,6 +22,23 @@ class InMemorySymptomRepository implements SymptomRepository {
   @override
   void saveSelections(Map<String, Set<String>> selections) {
     _store = selections.map((k, v) => MapEntry(k, Set<String>.from(v)));
+  }
+
+  @override
+  Map<String, String> loadMemos() => Map<String, String>.from(_memos);
+
+  @override
+  void saveMemo(String dateKey, String memo) {
+    if (memo.trim().isEmpty) {
+      _memos.remove(dateKey);
+    } else {
+      _memos[dateKey] = memo;
+    }
+  }
+
+  @override
+  void deleteMemo(String dateKey) {
+    _memos.remove(dateKey);
   }
 }
 
@@ -133,7 +154,7 @@ class FirebaseSymptomRepository implements SymptomRepository {
             batch.set(docRef, {
               'symptoms': entry.value.toList(),
               'date': entry.key,
-            });
+            }, SetOptions(merge: true));
           }
         }
       }
@@ -142,5 +163,90 @@ class FirebaseSymptomRepository implements SymptomRepository {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// 비동기 메모 로드
+  Future<Map<String, String>> loadMemosAsync({
+    bool forceRefresh = false,
+  }) async {
+    final firestore = _firestore;
+    if (firestore == null) {
+      return {};
+    }
+
+    try {
+      final snapshot = forceRefresh
+          ? await firestore
+                .collection(_collectionPath)
+                .get(const GetOptions(source: Source.server))
+          : await firestore.collection(_collectionPath).get();
+
+      if (snapshot.docs.isEmpty) {
+        return {};
+      }
+
+      final result = <String, String>{};
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final dateKey = doc.id;
+        final memo = data['memo'] as String?;
+        if (memo != null && memo.isNotEmpty) {
+          result[dateKey] = memo;
+        }
+      }
+
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  @override
+  Map<String, String> loadMemos() {
+    // 동기적으로 로드할 수 없으므로 빈 맵 반환
+    // 실제로는 비동기 로드가 필요하지만, 기존 인터페이스 유지를 위해
+    // 별도의 loadMemosAsync 메서드 제공
+    return {};
+  }
+
+  @override
+  void saveMemo(String dateKey, String memo) {
+    if (_firestore == null) {
+      return;
+    }
+
+    _saveMemoAsync(dateKey, memo).catchError((error) {
+      // 에러 처리
+    });
+  }
+
+  Future<void> _saveMemoAsync(String dateKey, String memo) async {
+    final firestore = _firestore;
+    if (firestore == null) {
+      return;
+    }
+
+    try {
+      final docRef = firestore.collection(_collectionPath).doc(dateKey);
+      
+      if (memo.trim().isEmpty) {
+        // 메모가 비어있으면 memo 필드만 삭제
+        await docRef.update({'memo': FieldValue.delete()});
+      } else {
+        // 메모 저장 (기존 문서가 있으면 merge, 없으면 생성)
+        await docRef.set({
+          'memo': memo,
+          'date': dateKey,
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  void deleteMemo(String dateKey) {
+    saveMemo(dateKey, '');
   }
 }

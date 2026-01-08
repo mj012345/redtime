@@ -166,39 +166,49 @@ class DayCell extends StatelessWidget {
       indicator = const Text(
         '시작/종료',
         style: TextStyle(fontSize: 10, color: AppColors.primary),
+        overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodStart) {
       indicator = const Text(
         '시작',
         style: TextStyle(fontSize: 10, color: AppColors.primary),
+        overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodEnd) {
       indicator = const Text(
         '종료',
         style: TextStyle(fontSize: 10, color: AppColors.primary),
+        overflow: TextOverflow.visible,
       );
     } else if (isOvulation) {
       indicator = const Text(
         '배란일',
         style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
+        overflow: TextOverflow.visible,
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
         '생리 예정',
         style: TextStyle(fontSize: 10, color: AppColors.primary),
+        overflow: TextOverflow.visible,
       );
     } else if (isFertile && !isOvulation && isFertileStart) {
       indicator = const Text(
         '가임기',
         style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
+        overflow: TextOverflow.visible,
       );
     }
 
     return SizedBox(
-      height: 12,
+      height: 14,
       child: indicator == null
           ? const SizedBox.shrink()
-          : Center(child: indicator),
+          : OverflowBox(
+              minHeight: 14,
+              maxHeight: 16,
+              child: Center(child: indicator),
+            ),
     );
   }
 }
