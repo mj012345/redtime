@@ -35,7 +35,7 @@ class SymptomStatItem extends StatelessWidget {
             Text(
               data.label,
               style: AppTextStyles.body.copyWith(
-                fontSize: 16,
+                fontSize: AppTextStyles.body.fontSize,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -52,7 +52,7 @@ class SymptomStatItem extends StatelessWidget {
               child: Text(
                 '${data.count}회',
                 style: AppTextStyles.caption.copyWith(
-                  fontSize: 12,
+                  fontSize: 10,
                   color: AppColors.textPrimary,
                 ),
               ),

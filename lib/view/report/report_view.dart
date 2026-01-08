@@ -7,6 +7,7 @@ import 'package:red_time_app/widgets/bottom_nav.dart';
 import 'package:red_time_app/view/report/widgets/chart_preview.dart';
 import 'package:red_time_app/view/report/widgets/summary_card.dart';
 import 'package:red_time_app/view/report/widgets/symptom_stat_item.dart';
+import 'package:red_time_app/view/report/widgets/symptom_calendar_heatmap.dart';
 import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 
@@ -349,6 +350,45 @@ class ReportView extends StatelessWidget {
                             SymptomStatItem(data: item),
                             const SizedBox(height: AppSpacing.sm),
                           ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // 주기/증상 트래킹
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      border: Border.all(color: AppColors.primaryLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '주기/증상 트래킹',
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: AppTextStyles.title.fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        // 증상 캘린더 히트맵
+                        SymptomCalendarHeatmap(
+                          symptomData: symptomSelections,
+                          startDate: DateTime(
+                            vm.today.year,
+                            vm.today.month,
+                            vm.today.day,
+                          ).subtract(const Duration(days: 29)),
+                          endDate: DateTime(
+                            vm.today.year,
+                            vm.today.month,
+                            vm.today.day,
+                          ),
+                        ),
                       ],
                     ),
                   ),
