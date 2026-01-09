@@ -190,7 +190,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
             }
           }
 
-          final startSel = vm.isSelectedDayStart();
+    final startSel = vm.isSelectedDayStart();
           final endSel = vm.isSelectedDayEnd();
           final selectedDay = vm.selectedDay;
           final today = vm.today;
@@ -203,22 +203,22 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
             }
           }
 
-          final isFutureDate =
+    final isFutureDate =
               selectedDay != null &&
-              DateTime(
+        DateTime(
                 selectedDay.year,
                 selectedDay.month,
                 selectedDay.day,
               ).isAfter(DateTime(today.year, today.month, today.day));
 
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: SafeArea(
-              child: Column(
-                children: [
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+          child: Column(
+            children: [
                   const SizedBox(height: AppSpacing.xs),
-                  MonthHeader(
-                    month: vm.currentMonth,
+              MonthHeader(
+                month: vm.currentMonth,
                     onPrev: () => _jumpToPage(-1),
                     onNext: () => _jumpToPage(1),
                     onToday: () {
@@ -241,9 +241,9 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                         _pageController.jumpToPage(selectedIndex);
                       }
                     },
-                  ),
+              ),
                   const SizedBox(height: AppSpacing.xs),
-                  Expanded(
+              Expanded(
                     child: RefreshIndicator(
                       onRefresh: () async {
                         await vm.refresh();
@@ -259,19 +259,19 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                 week: _getWeekForDate(selectedDay),
                                 today: today,
                                 selectedDay: selectedDay,
-                                periodCycles: vm.periodCycles,
-                                periodDays: vm.periodDays,
-                                fertileWindowDays: vm.fertileWindowDays,
-                                ovulationDay: vm.ovulationDay,
-                                ovulationDays: vm.ovulationDays,
-                                expectedPeriodDays: vm.expectedPeriodDays,
-                                expectedFertileWindowDays:
-                                    vm.expectedFertileWindowDays,
-                                expectedOvulationDay: vm.expectedOvulationDay,
-                                symptomRecordDays: vm.symptomRecordDays,
+                          periodCycles: vm.periodCycles,
+                          periodDays: vm.periodDays,
+                          fertileWindowDays: vm.fertileWindowDays,
+                          ovulationDay: vm.ovulationDay,
+                          ovulationDays: vm.ovulationDays,
+                          expectedPeriodDays: vm.expectedPeriodDays,
+                          expectedFertileWindowDays:
+                              vm.expectedFertileWindowDays,
+                          expectedOvulationDay: vm.expectedOvulationDay,
+                          symptomRecordDays: vm.symptomRecordDays,
                                 getSymptomCount: vm.getSymptomCountFor,
-                                onSelect: vm.selectDay,
-                              ),
+                          onSelect: vm.selectDay,
+                        ),
                             ),
                           // 나머지 내용
                           SliverToBoxAdapter(
@@ -342,67 +342,67 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                       ),
                                     )
                                   else ...[
-                                    TodayCard(
+                          TodayCard(
                                       selectedDay: selectedDay,
                                       today: today,
-                                      periodCycles: vm.periodCycles,
-                                      periodDays: vm.periodDays,
-                                      expectedPeriodDays: vm.expectedPeriodDays,
-                                      fertileWindowDays: vm.fertileWindowDays,
-                                      expectedFertileWindowDays:
-                                          vm.expectedFertileWindowDays,
-                                      onPeriodStart: vm.setPeriodStart,
-                                      onPeriodEnd: vm.setPeriodEnd,
-                                      isStartSelected: startSel,
-                                      isEndSelected: endSel,
-                                    ),
-                                    const SizedBox(height: AppSpacing.xl),
-                                    Text(
-                                      '증상',
-                                      style: AppTextStyles.title.copyWith(
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.sm),
-                                    SymptomSection(
-                                      categories: vm.symptomCatalog,
-                                      selectedLabels: vm.selectedSymptomsFor(
+                            periodCycles: vm.periodCycles,
+                            periodDays: vm.periodDays,
+                            expectedPeriodDays: vm.expectedPeriodDays,
+                            fertileWindowDays: vm.fertileWindowDays,
+                            expectedFertileWindowDays:
+                                vm.expectedFertileWindowDays,
+                            onPeriodStart: vm.setPeriodStart,
+                            onPeriodEnd: vm.setPeriodEnd,
+                            isStartSelected: startSel,
+                            isEndSelected: endSel,
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          Text(
+                            '증상',
+                            style: AppTextStyles.title.copyWith(
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SymptomSection(
+                            categories: vm.symptomCatalog,
+                            selectedLabels: vm.selectedSymptomsFor(
                                         selectedDay,
-                                      ),
-                                      onToggle: vm.toggleSymptom,
+                            ),
+                            onToggle: vm.toggleSymptom,
                                       hasMemo: _hasMemo(vm, selectedDay),
                                       onMemoTap: () => _showMemoBottomSheet(
                                         context,
                                         vm,
                                         selectedDay,
                                       ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: AppSpacing.xl),
-                                ],
-                              ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.xl),
+                      ],
+                    ),
                             ),
                           ),
                         ],
-                      ),
-                    ),
                   ),
-                ],
+                ),
               ),
-            ),
-            bottomNavigationBar: BottomNav(
-              current: NavTab.calendar,
-              onTap: (tab) {
-                if (tab == NavTab.calendar) return;
-                if (tab == NavTab.report) {
-                  Navigator.of(context).pushReplacementNamed('/report');
-                } else if (tab == NavTab.my) {
-                  Navigator.of(context).pushReplacementNamed('/my');
-                }
-              },
-            ),
-          );
+            ],
+        ),
+      ),
+      bottomNavigationBar: BottomNav(
+        current: NavTab.calendar,
+        onTap: (tab) {
+          if (tab == NavTab.calendar) return;
+          if (tab == NavTab.report) {
+            Navigator.of(context).pushReplacementNamed('/report');
+          } else if (tab == NavTab.my) {
+            Navigator.of(context).pushReplacementNamed('/my');
+          }
+        },
+      ),
+    );
         },
       );
     } catch (e) {

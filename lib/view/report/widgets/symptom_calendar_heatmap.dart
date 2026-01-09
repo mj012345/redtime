@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:red_time_app/models/symptom_category.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 
@@ -6,19 +7,39 @@ import 'package:red_time_app/theme/app_text_styles.dart';
 class SymptomColors {
   static const Color period = Color(0xFFFFEBEE); // 생리일
   static const Color fertile = Color(0xFFE8F5F6); // 가임기
-  static const Color cramp = Color(0xFFFCDEC1); // 생리통
-  static const Color digestion = Color(0xFFDFFDCF); // 소화
-  static const Color acne = Color(0xFFFFFFFF); // 뾰루지 (기본 흰색)
   static const Color border = Color(0xFFE7E7E7); // 테두리
+  static const Color defaultSymptom = Color(0xFFE0E0E0); // 기본 증상 색상 (회색)
+  static const Color goodSymptom = Color(0xFFC8E6C9); // 좋음 증상 색상 (녹색)
+}
+
+/// 카테고리별 레이블 정보
+class _CategoryLabel {
+  final String categoryTitle;
+  final List<String> symptoms;
+  final bool hasGood;
+  final List<String> otherSymptoms;
+
+  _CategoryLabel({required this.categoryTitle, required this.symptoms})
+    : hasGood = symptoms.contains('좋음'),
+      otherSymptoms = symptoms.where((s) => s != '좋음').toList();
 }
 
 /// 증상 캘린더 히트맵 위젯
-class SymptomCalendarHeatmap extends StatelessWidget {
+class SymptomCalendarHeatmap extends StatefulWidget {
   /// 날짜별 증상 데이터
   /// Key: 날짜 키 (yyyy-MM-dd), Value: 증상 리스트
   final Map<String, Set<String>> symptomData;
 
-  /// 시작 날짜 (최근 30일 기준)
+  /// 생리일 리스트
+  final List<DateTime> periodDays;
+
+  /// 가임기 리스트
+  final List<DateTime> fertileWindowDays;
+
+  /// 증상 카테고리 리스트
+  final List<SymptomCategory> symptomCatalog;
+
+  /// 시작 날짜 (최근 40일 기준)
   final DateTime startDate;
 
   /// 종료 날짜 (오늘)
@@ -27,32 +48,199 @@ class SymptomCalendarHeatmap extends StatelessWidget {
   const SymptomCalendarHeatmap({
     super.key,
     required this.symptomData,
+    required this.periodDays,
+    required this.fertileWindowDays,
+    required this.symptomCatalog,
     required this.startDate,
     required this.endDate,
   });
 
-  /// 날짜 포맷팅 (M/d 또는 d)
+  @override
+  State<SymptomCalendarHeatmap> createState() => _SymptomCalendarHeatmapState();
+}
+
+class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
+  final ScrollController _scrollController = ScrollController();
+  bool _hasScrolledToEnd = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 날짜 포맷팅 (M.d 또는 d)
   String _formatDate(DateTime date, bool isFirstOfMonth) {
     if (isFirstOfMonth) {
-      return '${date.month}/${date.day}';
+      return '${date.month}.${date.day}';
     }
     return '${date.day}';
+  }
+
+  /// 증상 이름으로 카테고리 찾기 (카테고리/증상 형식 지원)
+  String? _findCategoryForSymptom(String symptom) {
+    // "카테고리/증상" 형식인 경우 파싱
+    if (symptom.contains('/')) {
+      final parts = symptom.split('/');
+      if (parts.length == 2) {
+        return parts[0]; // 카테고리 반환
+      }
+    }
+
+    // 기존 형식 지원 (하위 호환성)
+    for (final category in widget.symptomCatalog) {
+      for (final group in category.groups) {
+        if (group.contains(symptom)) {
+          return category.title;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 증상 이름 추출 (카테고리/증상 형식에서 증상만)
+  String _extractSymptomName(String symptom) {
+    if (symptom.contains('/')) {
+      final parts = symptom.split('/');
+      if (parts.length == 2) {
+        return parts[1]; // 증상 이름만 반환
+      }
+    }
+    return symptom;
+  }
+
+  /// 카테고리 이름으로 증상 리스트 가져오기
+  List<String> _getSymptomsForCategory(String categoryTitle) {
+    final categoryLabels = _generateCategoryLabels();
+    for (final categoryLabel in categoryLabels) {
+      if (categoryLabel.categoryTitle == categoryTitle) {
+        return categoryLabel.symptoms;
+      }
+    }
+    return [];
+  }
+
+  /// 카테고리별 레이블 리스트 생성
+  List<_CategoryLabel> _generateCategoryLabels() {
+    // 최근 40일 데이터 기준으로 증상 기록 횟수 계산
+    final symptomCounts = <String, int>{};
+    final excludedSymptoms = {'생리일', '가임기', '메모'};
+
+    for (final entry in widget.symptomData.entries) {
+      final dateKey = entry.key;
+      final symptoms = entry.value;
+
+      // 날짜가 startDate와 endDate 사이인지 확인
+      try {
+        final parts = dateKey.split('-');
+        if (parts.length == 3) {
+          final date = DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+          if (!date.isBefore(widget.startDate) &&
+              !date.isAfter(widget.endDate)) {
+            for (final symptom in symptoms) {
+              if (!excludedSymptoms.contains(symptom)) {
+                symptomCounts[symptom] = (symptomCounts[symptom] ?? 0) + 1;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // 날짜 파싱 실패 시 무시
+      }
+    }
+
+    // 카테고리별로 증상 그룹화
+    final categoryMap = <String, Map<String, int>>{}; // 증상 이름 -> 카운트 매핑
+    for (final symptom in symptomCounts.keys) {
+      final category = _findCategoryForSymptom(symptom);
+      if (category != null) {
+        final symptomName = _extractSymptomName(symptom);
+        final count = symptomCounts[symptom] ?? 0;
+        categoryMap.putIfAbsent(category, () => <String, int>{})[symptomName] =
+            (categoryMap[category]![symptomName] ?? 0) + count;
+      }
+    }
+
+    // 카테고리별 레이블 생성
+    final categoryLabels = <_CategoryLabel>[];
+    for (final entry in categoryMap.entries) {
+      // 기록 횟수 기준으로 정렬
+      final sortedSymptoms = entry.value.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      categoryLabels.add(
+        _CategoryLabel(
+          categoryTitle: entry.key,
+          symptoms: sortedSymptoms.map((e) => e.key).toList(),
+        ),
+      );
+    }
+
+    // 카테고리 이름 순으로 정렬
+    categoryLabels.sort((a, b) => a.categoryTitle.compareTo(b.categoryTitle));
+
+    return categoryLabels;
+  }
+
+  /// 모든 레이블 행 생성 (카테고리만)
+  List<_LabelRow> _generateLabelRows() {
+    final rows = <_LabelRow>[];
+
+    // 고정 레이블
+    rows.add(_LabelRow(label: '생리일', isCategory: false));
+    rows.add(_LabelRow(label: '가임기', isCategory: false));
+
+    // 카테고리별 레이블
+    final categoryLabels = _generateCategoryLabels();
+    for (final categoryLabel in categoryLabels) {
+      // 카테고리 행만 추가
+      rows.add(
+        _LabelRow(
+          label: categoryLabel.categoryTitle,
+          isCategory: true,
+          categoryTitle: categoryLabel.categoryTitle,
+        ),
+      );
+    }
+
+    return rows;
   }
 
   @override
   Widget build(BuildContext context) {
     // 날짜 리스트 생성 (startDate부터 endDate까지)
     final dates = <DateTime>[];
-    var current = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    var current = DateTime(
+      widget.startDate.year,
+      widget.startDate.month,
+      widget.startDate.day,
+    );
+    final end = DateTime(
+      widget.endDate.year,
+      widget.endDate.month,
+      widget.endDate.day,
+    );
 
     while (!current.isAfter(end)) {
       dates.add(current);
       current = current.add(const Duration(days: 1));
     }
 
-    // 레이블 리스트
-    const labels = ['생리일', '가임기', '생리통', '소화', '뾰루지'];
+    // 레이블 행 리스트
+    final labelRows = _generateLabelRows();
+
+    // 빌드 완료 후 오른쪽 끝으로 스크롤
+    if (!_hasScrolledToEnd) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients && !_hasScrolledToEnd) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          _hasScrolledToEnd = true;
+        }
+      });
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,19 +250,24 @@ class SymptomCalendarHeatmap extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 헤더 공간
-            const SizedBox(height: 18, width: 25),
+            const SizedBox(height: 24, width: 60),
             // 레이블들
-            ...labels.map((label) {
+            ...labelRows.map((labelRow) {
               return SizedBox(
-                height: 18,
-                width: 25,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    label,
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 8,
-                      color: const Color(0xFF555555),
+                height: 24,
+                width: 60,
+                child: Transform.translate(
+                  offset: const Offset(0, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      labelRow.label,
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 10,
+                        color: const Color(0xFF555555),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.visible,
                     ),
                   ),
                 ),
@@ -82,40 +275,65 @@ class SymptomCalendarHeatmap extends StatelessWidget {
             }),
           ],
         ),
-        const SizedBox(width: 3),
         // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
         Expanded(
           child: SingleChildScrollView(
+            controller: _scrollController,
             scrollDirection: Axis.horizontal,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 날짜 헤더
-                Row(
-                  children: dates.map((date) {
-                    final isFirstOfMonth =
-                        date.day == 1 ||
-                        (dates.indexOf(date) > 0 &&
-                            dates[dates.indexOf(date) - 1].month != date.month);
-                    return SizedBox(
-                      width: 18,
-                      child: Center(
-                        child: Text(
-                          _formatDate(date, isFirstOfMonth),
-                          style: AppTextStyles.caption.copyWith(
-                            fontSize: 10,
-                            color: AppColors.textPrimary.withValues(alpha: 0.5),
+                SizedBox(
+                  height: 24,
+                  child: Row(
+                    children: dates.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final date = entry.value;
+                      final isFirstOfMonth =
+                          index == 0 ||
+                          date.day == 1 ||
+                          (index > 0 && dates[index - 1].month != date.month);
+
+                      // 오늘 날짜인지 확인
+                      final today = DateTime.now();
+                      final isToday =
+                          date.year == today.year &&
+                          date.month == today.month &&
+                          date.day == today.day;
+
+                      // 월의 1일인지 확인
+                      final isFirstDay = date.day == 1;
+
+                      return SizedBox(
+                        width: 24,
+                        child: Center(
+                          child: Text(
+                            _formatDate(date, isFirstOfMonth),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 9,
+                              color: isToday
+                                  ? AppColors
+                                        .primary // 보라색
+                                  : AppColors.textPrimary.withValues(
+                                      alpha: isFirstDay ? 1.0 : 0.5,
+                                    ),
+                              fontWeight: isToday || isFirstDay
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
-                const SizedBox(height: 2),
                 // 날짜 그리드
-                ...labels.asMap().entries.map((labelEntry) {
+                ...labelRows.asMap().entries.map((labelEntry) {
                   final labelIndex = labelEntry.key;
-                  final label = labelEntry.value;
+                  final labelRow = labelEntry.value;
                   final isFirstRow = labelIndex == 0;
 
                   return Row(
@@ -127,30 +345,70 @@ class SymptomCalendarHeatmap extends StatelessWidget {
                       // 해당 레이블의 증상이 있는지 확인
                       final dateKey =
                           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                      final symptoms = symptomData[dateKey] ?? <String>{};
-                      final hasSymptom = symptoms.contains(label);
+                      final symptoms =
+                          widget.symptomData[dateKey] ?? <String>{};
 
-                      // 레이블에 맞는 색상 적용
-                      Color cellColor;
-                      if (label == '생리일' && hasSymptom) {
-                        cellColor = SymptomColors.period;
-                      } else if (label == '가임기' && hasSymptom) {
-                        cellColor = SymptomColors.fertile;
-                      } else if (label == '생리통' && hasSymptom) {
-                        cellColor = SymptomColors.cramp;
-                      } else if (label == '소화' && hasSymptom) {
-                        cellColor = SymptomColors.digestion;
-                      } else if (label == '뾰루지' && hasSymptom) {
-                        cellColor = SymptomColors.acne;
+                      bool hasSymptom = false;
+                      Color cellColor = Colors.white;
+
+                      // 생리일과 가임기는 별도 처리
+                      if (labelRow.label == '생리일') {
+                        hasSymptom = widget.periodDays.any(
+                          (d) =>
+                              d.year == date.year &&
+                              d.month == date.month &&
+                              d.day == date.day,
+                        );
+                        if (hasSymptom) {
+                          cellColor = SymptomColors.period;
+                        }
+                      } else if (labelRow.label == '가임기') {
+                        hasSymptom = widget.fertileWindowDays.any(
+                          (d) =>
+                              d.year == date.year &&
+                              d.month == date.month &&
+                              d.day == date.day,
+                        );
+                        if (hasSymptom) {
+                          cellColor = SymptomColors.fertile;
+                        }
+                      } else if (labelRow.isCategory) {
+                        // 카테고리 행: 해당 카테고리의 증상이 하나라도 있으면 색상 표시
+                        final categorySymptoms = _getSymptomsForCategory(
+                          labelRow.label,
+                        );
+                        // "카테고리/증상" 형식으로 확인
+                        final hasAnySymptom = categorySymptoms.any(
+                          (symptom) =>
+                              symptoms.contains('${labelRow.label}/$symptom'),
+                        );
+                        if (hasAnySymptom) {
+                          // '좋음'이 있으면 녹색, 아니면 회색
+                          if (symptoms.contains('${labelRow.label}/좋음')) {
+                            cellColor = SymptomColors.goodSymptom;
+                          } else {
+                            cellColor = SymptomColors.defaultSymptom;
+                          }
+                          hasSymptom = true;
+                        }
                       } else {
-                        cellColor = Colors.white;
+                        // 일반 증상은 symptomData에서 확인 (이 경우는 카테고리가 표시되지 않으므로 사용하지 않음)
+                        // 하지만 혹시 모를 경우를 위해 처리
+                        hasSymptom = symptoms.contains(labelRow.label);
+                        if (hasSymptom) {
+                          // "좋음" 레이블이면 녹색, 아니면 회색
+                          if (labelRow.label == '좋음') {
+                            cellColor = SymptomColors.goodSymptom;
+                          } else {
+                            cellColor = SymptomColors.defaultSymptom;
+                          }
+                        }
                       }
 
-                      // 테두리: 오른쪽과 아래만 그리기
-                      // 첫 번째 행은 위쪽, 첫 번째 열은 왼쪽, 마지막 행은 아래, 마지막 열은 오른쪽
+                      // 테두리: 오른쪽과 아래만 그리기 (첫 번째 행/열은 전체 테두리)
                       return Container(
-                        width: 18,
-                        height: 18,
+                        width: 24,
+                        height: 24,
                         decoration: BoxDecoration(
                           color: cellColor,
                           border: Border(
@@ -189,4 +447,17 @@ class SymptomCalendarHeatmap extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 레이블 행 정보
+class _LabelRow {
+  final String label;
+  final bool isCategory;
+  final String? categoryTitle;
+
+  _LabelRow({
+    required this.label,
+    required this.isCategory,
+    this.categoryTitle,
+  });
 }

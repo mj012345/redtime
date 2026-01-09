@@ -30,7 +30,14 @@ class SymptomSection extends StatelessWidget {
             title: categories[i].title,
             groups: categories[i].groups,
             selectedLabels: selectedLabels,
-            onToggle: onToggle,
+            onToggle: (label) {
+              // 메모는 카테고리 없이 그대로 전달
+              if (label == '메모') {
+                onToggle(label);
+              } else {
+                onToggle('${categories[i].title}/$label');
+              }
+            },
             onMemoTap: onMemoTap,
             hasMemo: hasMemo,
           ),
@@ -95,7 +102,7 @@ class _Category extends StatelessWidget {
                     label: label,
                     selected: label == '메모'
                         ? hasMemo
-                        : selectedLabels.contains(label),
+                        : selectedLabels.contains('$title/$label'),
                     onTap: () => onToggle(label),
                     onMemoTap: label == '메모' ? onMemoTap : null,
                   ),

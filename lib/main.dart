@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -168,7 +170,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (user != null) {
         try {
           // 사용자 정보 갱신 (Firebase에서 삭제되었는지 확인)
-          await user.reload();
+          // 타임아웃 추가하여 무한 대기 방지
+          await user.reload().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('사용자 정보 갱신 타임아웃');
+            },
+          );
 
           // 갱신된 사용자 정보 가져오기
           final updatedUser = FirebaseAuth.instance.currentUser;
@@ -181,9 +189,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
             return;
           }
 
-          // 토큰 유효성 확인
+          // 토큰 유효성 확인 (타임아웃 추가)
           try {
-            await updatedUser.getIdToken(true); // 강제 갱신
+            await updatedUser
+                .getIdToken(true)
+                .timeout(
+                  const Duration(seconds: 5),
+                  onTimeout: () {
+                    debugPrint('토큰 갱신 타임아웃');
+                    throw TimeoutException('토큰 갱신 타임아웃');
+                  },
+                );
             setState(() {
               _isValidating = false;
               _isValidUser = true;

@@ -18,7 +18,8 @@ class CalendarViewModel extends ChangeNotifier {
        userId = (periodRepository is FirebasePeriodRepository)
            ? periodRepository.userId
            : null {
-    _initialize();
+    // 비동기 초기화를 지연시켜 앱 시작을 블로킹하지 않도록 함
+    Future.microtask(() => _initialize());
   }
 
   /// 비동기 초기화 (Firebase Repository 사용 시)

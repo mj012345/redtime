@@ -173,9 +173,18 @@ class ReportView extends StatelessWidget {
       final count = entry.value;
       final ratio = totalRecordedDays > 0 ? count / totalRecordedDays : 0.0;
 
+      // "카테고리/증상" 형식에서 증상 이름만 추출
+      String symptomLabel = entry.key;
+      if (symptomLabel.contains('/')) {
+        final parts = symptomLabel.split('/');
+        if (parts.length == 2) {
+          symptomLabel = parts[1]; // 증상 이름만 사용
+        }
+      }
+
       result.add(
         SymptomStatItemData(
-          label: entry.key,
+          label: symptomLabel,
           count: count,
           ratio: ratio.clamp(0.0, 1.0),
           color: colors[i % colors.length],
@@ -378,11 +387,14 @@ class ReportView extends StatelessWidget {
                         // 증상 캘린더 히트맵
                         SymptomCalendarHeatmap(
                           symptomData: symptomSelections,
+                          periodDays: vm.periodDays,
+                          fertileWindowDays: vm.fertileWindowDays,
+                          symptomCatalog: vm.symptomCatalog,
                           startDate: DateTime(
                             vm.today.year,
                             vm.today.month,
                             vm.today.day,
-                          ).subtract(const Duration(days: 29)),
+                          ).subtract(const Duration(days: 39)),
                           endDate: DateTime(
                             vm.today.year,
                             vm.today.month,

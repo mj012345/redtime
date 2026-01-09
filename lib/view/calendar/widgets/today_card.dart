@@ -48,65 +48,65 @@ class TodayCard extends StatelessWidget {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
-                style: AppTextStyles.title.copyWith(
-                  fontSize: 20,
-                  color: AppColors.primary,
-                ),
-              ),
+        children: [
+          Text(
+            '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
+            style: AppTextStyles.title.copyWith(
+              fontSize: 20,
+              color: AppColors.primary,
+            ),
+          ),
               const SizedBox(width: AppSpacing.sm),
-              Builder(
-                builder: (context) {
+          Builder(
+            builder: (context) {
                   final probability = _calculatePregnancyProbability(
                     selectedDay,
                   );
 
                   if (probability == null) {
-                    return const SizedBox.shrink();
-                  }
+                return const SizedBox.shrink();
+              }
 
                   Color circleColor;
                   String text;
 
-                  switch (probability) {
-                    case '낮음':
-                      circleColor = const Color(0xFFC5C5C5);
-                      text = '임신 확률 낮음';
-                      break;
-                    case '높음':
-                      circleColor = const Color(0xFFA7C4A0);
-                      text = '임신 확률 높음';
-                      break;
-                    default:
-                      circleColor = const Color(0xFFFFD966);
-                      text = '임신 확률 보통';
-                  }
+                switch (probability) {
+                  case '낮음':
+                    circleColor = const Color(0xFFC5C5C5);
+                    text = '임신 확률 낮음';
+                    break;
+                  case '높음':
+                    circleColor = const Color(0xFFA7C4A0);
+                    text = '임신 확률 높음';
+                    break;
+                  default:
+                    circleColor = const Color(0xFFFFD966);
+                    text = '임신 확률 보통';
+              }
 
-                  return Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: circleColor,
-                          shape: BoxShape.circle,
+              return Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: circleColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        text,
-                        style: AppTextStyles.body.copyWith(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
+                        const SizedBox(width: 6),
+                        Text(
+                          text,
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
                   );
                 },
-              ),
-            ],
+                    ),
+                ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(

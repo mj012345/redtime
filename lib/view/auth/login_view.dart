@@ -83,27 +83,27 @@ class LoginView extends StatelessWidget {
                       final isLoading = authViewModel.isLoading;
 
                       return Column(
-                        children: [
+                                  children: [
                           // Google 로그인 버튼
                           SocialLoginButton(
                             label: '구글 로그인',
                             icon: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Image.network(
-                                'https://developers.google.com/identity/images/g-logo.png',
-                                fit: BoxFit.contain,
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Image.network(
+                                        'https://developers.google.com/identity/images/g-logo.png',
+                                        fit: BoxFit.contain,
                                 errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.g_mobiledata,
-                                  color: Color(0xFF4285F4),
-                                  size: 26,
-                                ),
-                              ),
-                            ),
+                                              Icons.g_mobiledata,
+                                              color: Color(0xFF4285F4),
+                                              size: 26,
+                                            ),
+                                      ),
+                                    ),
                             onPressed: () => _handleSignIn(
                               context,
                               () => authViewModel.signInWithGoogle(),
@@ -112,8 +112,8 @@ class LoginView extends StatelessWidget {
                             backgroundColor: Colors.white,
                             borderColor: const Color(0xFFE0E0E0),
                             textColor: const Color(0xFF3D3A3A),
-                          ),
-                        ],
+                                    ),
+                                  ],
                       );
                     },
                   ),
