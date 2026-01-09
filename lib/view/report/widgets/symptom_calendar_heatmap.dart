@@ -16,12 +16,8 @@ class SymptomColors {
 class _CategoryLabel {
   final String categoryTitle;
   final List<String> symptoms;
-  final bool hasGood;
-  final List<String> otherSymptoms;
 
-  _CategoryLabel({required this.categoryTitle, required this.symptoms})
-    : hasGood = symptoms.contains('좋음'),
-      otherSymptoms = symptoms.where((s) => s != '좋음').toList();
+  _CategoryLabel({required this.categoryTitle, required this.symptoms});
 }
 
 /// 증상 캘린더 히트맵 위젯
@@ -62,11 +58,25 @@ class SymptomCalendarHeatmap extends StatefulWidget {
 class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   final ScrollController _scrollController = ScrollController();
   bool _hasScrolledToEnd = false;
+  String? _selectedCellKey; // 선택된 셀의 키 (날짜_레이블)
+  OverlayEntry? _tooltipOverlay; // 현재 표시 중인 툴팁
 
   @override
   void dispose() {
+    _hideTooltip();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 툴팁 숨기기
+  void _hideTooltip() {
+    _tooltipOverlay?.remove();
+    _tooltipOverlay = null;
+    if (mounted) {
+      setState(() {
+        _selectedCellKey = null;
+      });
+    }
   }
 
   /// 날짜 포맷팅 (M.d 또는 d)
@@ -118,6 +128,180 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       }
     }
     return [];
+  }
+
+  /// 색상을 더 진하게 만드는 함수
+  Color _darkenColor(Color color, double amount) {
+    assert(amount >= 0 && amount <= 1);
+    final hsl = HSLColor.fromColor(color);
+    final lightness = (hsl.lightness - amount).clamp(0.0, 1.0);
+    return hsl.withLightness(lightness).toColor();
+  }
+
+  /// 증상 다이얼로그 표시
+  void _showSymptomDialog(
+    BuildContext context,
+    DateTime date,
+    Set<String> symptoms,
+    _LabelRow? labelRow,
+    Offset tapPosition,
+  ) {
+    // 생리일 여부 확인
+    final isPeriodDay = widget.periodDays.any(
+      (d) => d.year == date.year && d.month == date.month && d.day == date.day,
+    );
+
+    // 가임기 여부 확인
+    final isFertileDay = widget.fertileWindowDays.any(
+      (d) => d.year == date.year && d.month == date.month && d.day == date.day,
+    );
+
+    // 증상 텍스트 리스트 생성
+    final List<String> symptomTexts = [];
+
+    // 선택된 카테고리에 해당하는 증상만 표시
+    if (labelRow != null) {
+      if (labelRow.label == '생리일') {
+        if (isPeriodDay) {
+          symptomTexts.add('생리일');
+        }
+      } else if (labelRow.label == '가임기') {
+        if (isFertileDay) {
+          symptomTexts.add('가임기');
+        }
+      } else if (labelRow.isCategory) {
+        // 카테고리 행인 경우, 해당 카테고리의 증상만 표시
+        final categoryName = labelRow.label;
+        final categorySymptoms = <String>[];
+
+        for (final symptom in symptoms) {
+          if (symptom == '메모') {
+            continue;
+          }
+          if (symptom.contains('/')) {
+            final parts = symptom.split('/');
+            if (parts.length == 2 && parts[0] == categoryName) {
+              categorySymptoms.add(parts[1]);
+            }
+          }
+        }
+
+        // '좋음'만 있어도 표시
+        if (categorySymptoms.isNotEmpty) {
+          // 카테고리명 제외하고 증상만 표시
+          final symptomList = categorySymptoms.join(', ');
+          symptomTexts.add(symptomList);
+        } else {
+          // '좋음'이 있는지 확인 (다른 증상은 없지만 '좋음'만 있는 경우)
+          final hasGood = symptoms.contains('${categoryName}/좋음');
+          if (hasGood) {
+            symptomTexts.add('좋음');
+          }
+        }
+      }
+    } else {
+      // labelRow가 없는 경우 (일반적으로 발생하지 않음)
+      // 모든 증상 표시
+      final List<String> allSymptoms = [];
+
+      for (final symptom in symptoms) {
+        if (symptom == '메모') {
+          continue;
+        }
+        if (symptom.contains('/')) {
+          final parts = symptom.split('/');
+          if (parts.length == 2) {
+            allSymptoms.add(parts[1]);
+          }
+        } else {
+          allSymptoms.add(symptom);
+        }
+      }
+
+      if (isPeriodDay) {
+        symptomTexts.add('생리일');
+      }
+      if (isFertileDay) {
+        symptomTexts.add('가임기');
+      }
+
+      symptomTexts.addAll(allSymptoms);
+    }
+
+    // 증상이 없는 경우
+    if (symptomTexts.isEmpty) {
+      symptomTexts.add('기록된 증상이 없습니다.');
+    }
+
+    // 기존 툴팁이 있으면 먼저 제거
+    _hideTooltip();
+
+    final overlay = Overlay.of(context);
+    final screenSize = MediaQuery.of(context).size;
+    final popupWidth = 150.0; // 툴팁 너비 추정
+    final popupHeight = symptomTexts.length * 20.0 + 12.0; // 툴팁 높이 추정
+
+    // 터치 위치를 기준으로 툴팁 위치 계산
+    double left = tapPosition.dx;
+    double top = tapPosition.dy - popupHeight - 8; // 셀 위쪽에 표시
+
+    // 화면 경계 체크
+    if (left + popupWidth > screenSize.width) {
+      left = screenSize.width - popupWidth - 8;
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    if (top < 8) {
+      top = tapPosition.dy + 28; // 셀 아래쪽에 표시
+    }
+    if (top + popupHeight > screenSize.height - 8) {
+      top = screenSize.height - popupHeight - 8;
+    }
+
+    _tooltipOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: left,
+        top: top,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...symptomTexts.map(
+                  (text) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      text,
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 10,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_tooltipOverlay!);
   }
 
   /// 카테고리별 레이블 리스트 생성
@@ -256,19 +440,16 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
               return SizedBox(
                 height: 26,
                 width: 60,
-                child: Transform.translate(
-                  offset: const Offset(0, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      labelRow.label,
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 10,
-                        color: const Color(0xFF555555),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.visible,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    labelRow.label,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 10,
+                      color: const Color(0xFF555555),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
                   ),
                 ),
               );
@@ -420,20 +601,83 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         }
                       }
 
+                      // 셀 키 생성 (날짜_레이블)
+                      final cellKey =
+                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${labelRow.label}';
+                      final isSelected = _selectedCellKey == cellKey;
+
+                      // 셀 색상에 따라 테두리 색상 결정
+                      Color borderColor = SymptomColors.border;
+                      if (isSelected && cellColor != AppColors.disabled) {
+                        // 셀 색상보다 약간 진한 색상으로 테두리
+                        borderColor = _darkenColor(cellColor, 0.1);
+                      } else if (isSelected) {
+                        // 선택되었지만 기본 색상인 경우
+                        borderColor = AppColors.textSecondary;
+                      }
+
                       // 모든 셀에 테두리 추가
                       return Padding(
                         padding: EdgeInsets.only(right: 6, bottom: 6),
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: cellColor,
-                            borderRadius: BorderRadius.circular(2), // 약간 둥근 모서리
-                            border: Border.all(
-                              color: SymptomColors.border,
-                              width: 0.5,
-                            ),
-                          ),
+                        child: Builder(
+                          builder: (cellContext) {
+                            return GestureDetector(
+                              onTapDown: hasSymptom
+                                  ? (details) {
+                                      // 기존 툴팁이 있으면 먼저 닫기
+                                      _hideTooltip();
+
+                                      // 선택된 셀 업데이트
+                                      setState(() {
+                                        _selectedCellKey = cellKey;
+                                      });
+
+                                      // 터치 위치를 전역 좌표로 변환
+                                      final RenderBox? box =
+                                          cellContext.findRenderObject()
+                                              as RenderBox?;
+                                      if (box != null) {
+                                        // 셀의 중심 위치 계산
+                                        final cellCenter = box.localToGlobal(
+                                          Offset(
+                                            box.size.width / 2,
+                                            box.size.height / 2,
+                                          ),
+                                        );
+
+                                        // 다음 프레임에서 툴팁 표시
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (mounted &&
+                                                  _selectedCellKey == cellKey) {
+                                                _showSymptomDialog(
+                                                  cellContext,
+                                                  date,
+                                                  symptoms,
+                                                  labelRow,
+                                                  cellCenter,
+                                                );
+                                              }
+                                            });
+                                      }
+                                    }
+                                  : null,
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: cellColor,
+                                  borderRadius: BorderRadius.circular(
+                                    2,
+                                  ), // 약간 둥근 모서리
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: isSelected ? 1.5 : 0.5,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       );
                     }).toList(),
