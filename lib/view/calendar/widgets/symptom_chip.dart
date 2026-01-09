@@ -4,6 +4,7 @@ import 'package:red_time_app/theme/app_colors.dart';
 class SymptomChip extends StatelessWidget {
   final String label;
   final bool selected;
+  final bool disabled;
   final VoidCallback onTap;
   final VoidCallback? onMemoTap;
 
@@ -11,17 +12,26 @@ class SymptomChip extends StatelessWidget {
     super.key,
     required this.label,
     required this.selected,
+    this.disabled = false,
     required this.onTap,
     this.onMemoTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final fillColor = selected ? AppColors.primaryLight : Colors.white;
+    final fillColor = selected
+        ? AppColors.primaryLight
+        : (disabled ? AppColors.disabled : Colors.white);
     final borderColor = selected
         ? AppColors.primary.withValues(alpha: 0.1)
-        : AppColors.border;
-    final textColor = selected ? AppColors.primary : AppColors.textSecondary;
+        : (disabled
+              ? AppColors.border.withValues(alpha: 0.5)
+              : AppColors.border);
+    final textColor = selected
+        ? AppColors.primary
+        : (disabled
+              ? AppColors.textSecondary.withValues(alpha: 0.5)
+              : AppColors.textSecondary);
     final isMemo = label == '메모';
 
     return Material(
@@ -29,7 +39,9 @@ class SymptomChip extends StatelessWidget {
       child: InkWell(
         key: Key('symptom_$label'),
         borderRadius: BorderRadius.circular(30),
-        onTap: isMemo && onMemoTap != null ? onMemoTap : onTap,
+        onTap: disabled
+            ? null
+            : (isMemo && onMemoTap != null ? onMemoTap : onTap),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

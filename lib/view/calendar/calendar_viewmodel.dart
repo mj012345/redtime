@@ -173,10 +173,40 @@ class CalendarViewModel extends ChangeNotifier {
     if (selectedDay == null) return;
     final key = _dateKey(selectedDay!);
     final current = {...(_symptomSelections[key] ?? <String>{})};
-    if (current.contains(label)) {
-      current.remove(label);
+
+    // "메모"는 예외 처리
+    if (label == '메모') {
+      if (current.contains(label)) {
+        current.remove(label);
+      } else {
+        current.add(label);
+      }
     } else {
-      current.add(label);
+      // label이 "Category/Symptom" 형식
+      final parts = label.split('/');
+      if (parts.length != 2) return; // 형식이 맞지 않으면 종료
+
+      final category = parts[0];
+      final symptomName = parts[1];
+      final isGoodSymptom = symptomName == '좋음';
+
+      if (current.contains(label)) {
+        // 이미 선택된 경우 제거
+        current.remove(label);
+      } else {
+        // 새로 선택하는 경우
+        if (isGoodSymptom) {
+          // '좋음'을 선택하면 같은 카테고리의 다른 증상들만 제거
+          current.removeWhere(
+            (s) => s.startsWith('$category/') && !s.endsWith('/좋음'),
+          );
+          current.add(label);
+        } else {
+          // 다른 증상을 선택하면 같은 카테고리의 '좋음'만 제거
+          current.removeWhere((s) => s == '$category/좋음');
+          current.add(label);
+        }
+      }
     }
 
     if (current.isEmpty) {

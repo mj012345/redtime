@@ -96,18 +96,19 @@ class _Category extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: row
-                .map(
-                  (label) => SymptomChip(
-                    label: label,
-                    selected: label == '메모'
-                        ? hasMemo
-                        : selectedLabels.contains('$title/$label'),
-                    onTap: () => onToggle(label),
-                    onMemoTap: label == '메모' ? onMemoTap : null,
-                  ),
-                )
-                .toList(),
+            children: row.map((label) {
+              final fullLabel = label == '메모' ? '메모' : '$title/$label';
+              final isSelected = label == '메모'
+                  ? hasMemo
+                  : selectedLabels.contains(fullLabel);
+
+              return SymptomChip(
+                label: label,
+                selected: isSelected,
+                onTap: () => onToggle(label),
+                onMemoTap: label == '메모' ? onMemoTap : null,
+              );
+            }).toList(),
           ),
           const SizedBox(height: 8),
         ],

@@ -238,23 +238,45 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
-    final popupWidth = 150.0; // 툴팁 너비 추정
+    final cellSize = 20.0; // 셀 크기
+    final spacing = 6.0; // 셀 간격
+    final horizontalPadding = 10.0; // 툴팁 좌우 패딩
+
+    // 텍스트의 실제 너비 계산
+    final textStyle = AppTextStyles.body.copyWith(
+      fontSize: 10,
+      color: AppColors.textPrimary,
+    );
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(
+        text: symptomTexts.isEmpty
+            ? '기록된 증상이 없습니다.'
+            : symptomTexts.reduce((a, b) => a.length > b.length ? a : b),
+        style: textStyle,
+      ),
+    );
+    textPainter.layout();
+    final maxTextWidth = textPainter.size.width;
+    final popupWidth = maxTextWidth + horizontalPadding * 2;
     final popupHeight = symptomTexts.length * 20.0 + 12.0; // 툴팁 높이 추정
 
-    // 터치 위치를 기준으로 툴팁 위치 계산
-    double left = tapPosition.dx;
-    double top = tapPosition.dy - popupHeight - 8; // 셀 위쪽에 표시
+    // 기본: 셀의 오른쪽 하단
+    double left = tapPosition.dx + cellSize / 2 + spacing;
+    double top = tapPosition.dy + cellSize / 2 + spacing;
 
-    // 화면 경계 체크
-    if (left + popupWidth > screenSize.width) {
-      left = screenSize.width - popupWidth - 8;
+    // 오른쪽에 공간이 부족하면 왼쪽 하단으로 표시
+    if (left + popupWidth > screenSize.width - 8) {
+      // 툴팁의 오른쪽 끝이 셀의 왼쪽 끝과 가깝게 표시
+      left = tapPosition.dx - cellSize / 2 - popupWidth - spacing;
     }
+
+    // 왼쪽 경계 체크
     if (left < 8) {
       left = 8;
     }
-    if (top < 8) {
-      top = tapPosition.dy + 28; // 셀 아래쪽에 표시
-    }
+
+    // 아래쪽 경계 체크
     if (top + popupHeight > screenSize.height - 8) {
       top = screenSize.height - popupHeight - 8;
     }
