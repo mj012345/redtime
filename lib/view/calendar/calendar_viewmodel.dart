@@ -182,12 +182,12 @@ class CalendarViewModel extends ChangeNotifier {
         current.add(label);
       }
     } else {
-      // label이 "Category/Symptom" 형식
-      final parts = label.split('/');
-      if (parts.length != 2) return; // 형식이 맞지 않으면 종료
+      // label이 "Category/Symptom" 형식 (카테고리 이름에 슬래시가 포함될 수 있음)
+      final lastSlashIndex = label.lastIndexOf('/');
+      if (lastSlashIndex == -1) return; // 슬래시가 없으면 종료
 
-      final category = parts[0];
-      final symptomName = parts[1];
+      final category = label.substring(0, lastSlashIndex);
+      final symptomName = label.substring(lastSlashIndex + 1);
       final isGoodSymptom = symptomName == '좋음';
 
       if (current.contains(label)) {

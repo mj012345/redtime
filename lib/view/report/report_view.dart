@@ -135,7 +135,7 @@ class ReportView extends StatelessWidget {
       return [];
     }
 
-    // 각 증상별 기록 횟수 계산
+    // 각 증상별 기록 횟수 계산 ('좋음' 제외)
     final symptomCounts = <String, int>{};
     int totalRecordedDays = 0;
 
@@ -144,6 +144,10 @@ class ReportView extends StatelessWidget {
         totalRecordedDays++;
       }
       for (final symptom in symptoms) {
+        // '좋음'은 카운트에서 제외
+        if (symptom.endsWith('/좋음') || symptom == '좋음') {
+          continue;
+        }
         symptomCounts[symptom] = (symptomCounts[symptom] ?? 0) + 1;
       }
     }
@@ -173,13 +177,12 @@ class ReportView extends StatelessWidget {
       final count = entry.value;
       final ratio = totalRecordedDays > 0 ? count / totalRecordedDays : 0.0;
 
-      // "카테고리/증상" 형식에서 증상 이름만 추출
+      // "카테고리/증상" 형식에서 증상 이름만 추출 (카테고리 이름 제거)
       String symptomLabel = entry.key;
-      if (symptomLabel.contains('/')) {
-        final parts = symptomLabel.split('/');
-        if (parts.length == 2) {
-          symptomLabel = parts[1]; // 증상 이름만 사용
-        }
+      // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
+      final lastSlashIndex = symptomLabel.lastIndexOf('/');
+      if (lastSlashIndex != -1) {
+        symptomLabel = symptomLabel.substring(lastSlashIndex + 1); // 증상 이름만 사용
       }
 
       result.add(

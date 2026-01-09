@@ -90,11 +90,10 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   /// 증상 이름으로 카테고리 찾기 (카테고리/증상 형식 지원)
   String? _findCategoryForSymptom(String symptom) {
     // "카테고리/증상" 형식인 경우 파싱
-    if (symptom.contains('/')) {
-      final parts = symptom.split('/');
-      if (parts.length == 2) {
-        return parts[0]; // 카테고리 반환
-      }
+    // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
+    final lastSlashIndex = symptom.lastIndexOf('/');
+    if (lastSlashIndex != -1) {
+      return symptom.substring(0, lastSlashIndex); // 카테고리 반환
     }
 
     // 기존 형식 지원 (하위 호환성)
@@ -110,11 +109,10 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
   /// 증상 이름 추출 (카테고리/증상 형식에서 증상만)
   String _extractSymptomName(String symptom) {
-    if (symptom.contains('/')) {
-      final parts = symptom.split('/');
-      if (parts.length == 2) {
-        return parts[1]; // 증상 이름만 반환
-      }
+    // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
+    final lastSlashIndex = symptom.lastIndexOf('/');
+    if (lastSlashIndex != -1) {
+      return symptom.substring(lastSlashIndex + 1); // 증상 이름만 반환
     }
     return symptom;
   }
@@ -385,9 +383,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       );
     }
 
-    // 카테고리 이름 순으로 정렬
-    categoryLabels.sort((a, b) => a.categoryTitle.compareTo(b.categoryTitle));
-
     return categoryLabels;
   }
 
@@ -399,17 +394,28 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     rows.add(_LabelRow(label: '생리일', isCategory: false));
     rows.add(_LabelRow(label: '가임기', isCategory: false));
 
-    // 카테고리별 레이블
+    // 카테고리별 레이블 (달력 페이지 순서 유지)
     final categoryLabels = _generateCategoryLabels();
+    final categoryLabelMap = <String, _CategoryLabel>{};
     for (final categoryLabel in categoryLabels) {
-      // 카테고리 행만 추가
-      rows.add(
-        _LabelRow(
-          label: categoryLabel.categoryTitle,
-          isCategory: true,
-          categoryTitle: categoryLabel.categoryTitle,
-        ),
-      );
+      categoryLabelMap[categoryLabel.categoryTitle] = categoryLabel;
+    }
+
+    // symptomCatalog 순서대로 레이블 추가
+    for (final category in widget.symptomCatalog) {
+      // '기타' 카테고리는 제외 (관계, 메모만 포함)
+      if (category.title == '기타') continue;
+
+      // 해당 카테고리에 증상이 기록되어 있는 경우에만 추가
+      if (categoryLabelMap.containsKey(category.title)) {
+        rows.add(
+          _LabelRow(
+            label: category.title,
+            isCategory: true,
+            categoryTitle: category.title,
+          ),
+        );
+      }
     }
 
     return rows;
