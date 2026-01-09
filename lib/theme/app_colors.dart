@@ -12,6 +12,7 @@ class AppColors {
   static const Color background = Color(0xFFFFFDFC);
   static const Color surface = Colors.white;
   static const Color border = Color(0xFFEEEEEE);
+  static const Color disabled = Color(0xFFFAFAFA);
 
   // 텍스트
   static const Color textPrimary = Color(0xFF333333);

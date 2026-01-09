@@ -8,8 +8,8 @@ class SymptomColors {
   static const Color period = Color(0xFFFFEBEE); // 생리일
   static const Color fertile = Color(0xFFE8F5F6); // 가임기
   static const Color border = Color(0xFFE7E7E7); // 테두리
-  static const Color defaultSymptom = Color(0xFFE0E0E0); // 기본 증상 색상 (회색)
-  static const Color goodSymptom = Color(0xFFC8E6C9); // 좋음 증상 색상 (녹색)
+  static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상
+  static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상
 }
 
 /// 카테고리별 레이블 정보
@@ -249,12 +249,12 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 헤더 공간
-            const SizedBox(height: 24, width: 60),
-            // 레이블들
+            // 헤더 공간 (셀 높이 20 + 하단 간격 6 = 26)
+            const SizedBox(height: 26, width: 60),
+            // 레이블들 (셀 높이 20 + 하단 간격 6 = 26)
             ...labelRows.map((labelRow) {
               return SizedBox(
-                height: 24,
+                height: 26,
                 width: 60,
                 child: Transform.translate(
                   offset: const Offset(0, 0),
@@ -283,9 +283,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 날짜 헤더
+                // 날짜 헤더 (셀 높이 20 + 하단 간격 6 = 26)
                 SizedBox(
-                  height: 24,
+                  height: 26,
                   child: Row(
                     children: dates.asMap().entries.map((entry) {
                       final index = entry.key;
@@ -305,25 +305,27 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                       // 월의 1일인지 확인
                       final isFirstDay = date.day == 1;
 
-                      return SizedBox(
-                        width: 24,
-                        child: Center(
-                          child: Text(
-                            _formatDate(date, isFirstOfMonth),
-                            style: AppTextStyles.caption.copyWith(
-                              fontSize: 9,
-                              color: isToday
-                                  ? AppColors
-                                        .primary // 보라색
-                                  : AppColors.textPrimary.withValues(
-                                      alpha: isFirstDay ? 1.0 : 0.5,
-                                    ),
-                              fontWeight: isToday || isFirstDay
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: SizedBox(
+                          width: 20,
+                          child: Center(
+                            child: Text(
+                              _formatDate(date, isFirstOfMonth),
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 9,
+                                color: isToday
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary.withValues(
+                                        alpha: isFirstDay ? 0.8 : 0.5,
+                                      ),
+                                fontWeight: isToday || isFirstDay
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
                           ),
                         ),
                       );
@@ -332,15 +334,11 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                 ),
                 // 날짜 그리드
                 ...labelRows.asMap().entries.map((labelEntry) {
-                  final labelIndex = labelEntry.key;
                   final labelRow = labelEntry.value;
-                  final isFirstRow = labelIndex == 0;
 
                   return Row(
                     children: dates.asMap().entries.map((dateEntry) {
-                      final dateIndex = dateEntry.key;
                       final date = dateEntry.value;
-                      final isFirstCol = dateIndex == 0;
 
                       // 해당 레이블의 증상이 있는지 확인
                       final dateKey =
@@ -349,7 +347,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                           widget.symptomData[dateKey] ?? <String>{};
 
                       bool hasSymptom = false;
-                      Color cellColor = Colors.white;
+                      Color cellColor = AppColors.disabled;
 
                       // 생리일과 가임기는 별도 처리
                       if (labelRow.label == '생리일') {
@@ -373,67 +371,68 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                           cellColor = SymptomColors.fertile;
                         }
                       } else if (labelRow.isCategory) {
-                        // 카테고리 행: 해당 카테고리의 증상이 하나라도 있으면 색상 표시
+                        // 카테고리 행: 해당 카테고리의 증상 개수 확인
                         final categorySymptoms = _getSymptomsForCategory(
                           labelRow.label,
                         );
-                        // "카테고리/증상" 형식으로 확인
-                        final hasAnySymptom = categorySymptoms.any(
-                          (symptom) =>
-                              symptoms.contains('${labelRow.label}/$symptom'),
+                        // "좋음" 증상이 있는지 확인
+                        final hasGood = symptoms.contains(
+                          '${labelRow.label}/좋음',
                         );
-                        if (hasAnySymptom) {
-                          // '좋음'이 있으면 녹색, 아니면 회색
-                          if (symptoms.contains('${labelRow.label}/좋음')) {
-                            cellColor = SymptomColors.goodSymptom;
-                          } else {
-                            cellColor = SymptomColors.defaultSymptom;
-                          }
+                        if (hasGood) {
+                          // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
+                          cellColor = SymptomColors.goodSymptom;
                           hasSymptom = true;
+                        } else {
+                          // "카테고리/증상" 형식으로 해당 카테고리의 증상 개수 세기
+                          final symptomCount = categorySymptoms
+                              .where(
+                                (symptom) => symptoms.contains(
+                                  '${labelRow.label}/$symptom',
+                                ),
+                              )
+                              .length;
+                          if (symptomCount > 0) {
+                            // 증상 개수에 따라 투명도 적용
+                            double alpha = 1.0;
+                            if (symptomCount == 1) {
+                              alpha = 0.3;
+                            } else if (symptomCount == 2) {
+                              alpha = 0.6;
+                            } else {
+                              alpha = 1.0;
+                            }
+                            cellColor = SymptomColors.symptomBase.withValues(
+                              alpha: alpha,
+                            );
+                            hasSymptom = true;
+                          }
                         }
                       } else {
                         // 일반 증상은 symptomData에서 확인 (이 경우는 카테고리가 표시되지 않으므로 사용하지 않음)
                         // 하지만 혹시 모를 경우를 위해 처리
                         hasSymptom = symptoms.contains(labelRow.label);
                         if (hasSymptom) {
-                          // "좋음" 레이블이면 녹색, 아니면 회색
-                          if (labelRow.label == '좋음') {
-                            cellColor = SymptomColors.goodSymptom;
-                          } else {
-                            cellColor = SymptomColors.defaultSymptom;
-                          }
+                          // 증상이 1개인 경우로 처리
+                          cellColor = SymptomColors.symptomBase.withValues(
+                            alpha: 0.3,
+                          );
                         }
                       }
 
-                      // 테두리: 오른쪽과 아래만 그리기 (첫 번째 행/열은 전체 테두리)
-                      return Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: cellColor,
-                          border: Border(
-                            right: BorderSide(
+                      // 모든 셀에 테두리 추가
+                      return Padding(
+                        padding: EdgeInsets.only(right: 6, bottom: 6),
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: cellColor,
+                            borderRadius: BorderRadius.circular(2), // 약간 둥근 모서리
+                            border: Border.all(
                               color: SymptomColors.border,
-                              width: 1,
+                              width: 0.5,
                             ),
-                            bottom: BorderSide(
-                              color: SymptomColors.border,
-                              width: 1,
-                            ),
-                            // 첫 번째 열은 왼쪽 테두리도 추가
-                            left: isFirstCol
-                                ? BorderSide(
-                                    color: SymptomColors.border,
-                                    width: 1,
-                                  )
-                                : BorderSide.none,
-                            // 첫 번째 행은 위쪽 테두리도 추가
-                            top: isFirstRow
-                                ? BorderSide(
-                                    color: SymptomColors.border,
-                                    width: 1,
-                                  )
-                                : BorderSide.none,
                           ),
                         ),
                       );
