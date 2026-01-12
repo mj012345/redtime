@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 
+/// 증상별 색상 정의 (트래킹 셀과 동일)
+class SymptomColors {
+  static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상 (노랑색)
+  static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상 (초록색)
+}
+
 class SymptomChip extends StatelessWidget {
   final String label;
   final bool selected;
@@ -19,20 +25,30 @@ class SymptomChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGood = label == '좋음';
+    final isMemo = label == '메모';
+    
+    // 선택된 경우: 좋음은 초록색, 그 외는 노랑색
+    // 선택되지 않은 경우: 기본 색상
     final fillColor = selected
-        ? AppColors.primaryLight
+        ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.3): SymptomColors.symptomBase.withValues(alpha: 0.3))
         : (disabled ? AppColors.disabled : Colors.white);
+    
     final borderColor = selected
-        ? AppColors.primary.withValues(alpha: 0.1)
+        ? (isGood 
+            ? SymptomColors.goodSymptom.withValues(alpha: 0.5)
+            : SymptomColors.symptomBase.withValues(alpha: 0.5))
         : (disabled
               ? AppColors.border.withValues(alpha: 0.5)
               : AppColors.border);
+    
     final textColor = selected
-        ? AppColors.primary
+        ? (isGood 
+            ? const Color(0xFF2E7D32) // 초록색 배경에 어울리는 진한 초록색 텍스트
+            : const Color(0xFF8B5A00)) // 노랑색 배경에 어울리는 진한 갈색 텍스트
         : (disabled
               ? AppColors.textSecondary.withValues(alpha: 0.5)
               : AppColors.textSecondary);
-    final isMemo = label == '메모';
 
     return Material(
       color: Colors.transparent,

@@ -41,6 +41,9 @@ class SymptomCalendarHeatmap extends StatefulWidget {
   /// 종료 날짜 (오늘)
   final DateTime endDate;
 
+  /// 예시 모드 (데이터가 없을 때 회색으로 표시)
+  final bool isExample;
+
   const SymptomCalendarHeatmap({
     super.key,
     required this.symptomData,
@@ -49,6 +52,7 @@ class SymptomCalendarHeatmap extends StatefulWidget {
     required this.symptomCatalog,
     required this.startDate,
     required this.endDate,
+    this.isExample = false,
   });
 
   @override
@@ -413,6 +417,23 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     rows.add(_LabelRow(label: '생리일', isCategory: false));
     rows.add(_LabelRow(label: '가임기', isCategory: false));
 
+    // 예시 모드인 경우 모든 카테고리 표시
+    if (widget.isExample) {
+      for (final category in widget.symptomCatalog) {
+        // '기타' 카테고리는 제외 (관계, 메모만 포함)
+        if (category.title == '기타') continue;
+
+        rows.add(
+          _LabelRow(
+            label: category.title,
+            isCategory: true,
+            categoryTitle: category.title,
+          ),
+        );
+      }
+      return rows;
+    }
+
     // 카테고리별 레이블 (달력 페이지 순서 유지)
     final categoryLabels = _generateCategoryLabels();
     final categoryLabelMap = <String, _CategoryLabel>{};
@@ -594,7 +615,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                 d.day == date.day,
                           );
                           if (hasSymptom) {
-                            cellColor = SymptomColors.period;
+                            cellColor = widget.isExample
+                                ? AppColors.textDisabled.withValues(alpha: 0.3)
+                                : SymptomColors.period;
                           }
                         } else if (labelRow.label == '가임기') {
                           hasSymptom = widget.fertileWindowDays.any(
@@ -604,7 +627,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                 d.day == date.day,
                           );
                           if (hasSymptom) {
-                            cellColor = SymptomColors.fertile;
+                            cellColor = widget.isExample
+                                ? AppColors.textDisabled.withValues(alpha: 0.2)
+                                : SymptomColors.fertile;
                           }
                         } else if (labelRow.isCategory) {
                           // 카테고리 행: 해당 카테고리의 증상 개수 확인
@@ -617,7 +642,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                           );
                           if (hasGood) {
                             // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
-                            cellColor = SymptomColors.goodSymptom;
+                            cellColor = widget.isExample
+                                ? AppColors.textDisabled.withValues(alpha: 0.3)
+                                : SymptomColors.goodSymptom;
                             hasSymptom = true;
                           } else {
                             // "카테고리/증상" 형식으로 해당 카테고리의 증상 개수 세기
@@ -638,9 +665,13 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                               } else {
                                 alpha = 1.0;
                               }
-                              cellColor = SymptomColors.symptomBase.withValues(
-                                alpha: alpha,
-                              );
+                              cellColor = widget.isExample
+                                  ? AppColors.textDisabled.withValues(
+                                      alpha: alpha,
+                                    )
+                                  : SymptomColors.symptomBase.withValues(
+                                      alpha: alpha,
+                                    );
                               hasSymptom = true;
                             }
                           }

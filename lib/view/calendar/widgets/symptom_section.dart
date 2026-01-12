@@ -70,28 +70,15 @@ class _Category extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: const BoxDecoration(
-                color: AppColors.secondary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: AppTextStyles.body.copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
+        Text(
+          title,
+          style: AppTextStyles.body.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.secondary,
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 3),
         for (final row in groups) ...[
           Wrap(
             spacing: 8,

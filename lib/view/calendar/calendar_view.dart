@@ -62,9 +62,11 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
   bool _isSelectedWeekOutOfView(double scrollOffset, DateTime? selectedDay) {
     if (selectedDay == null) return false;
 
-    const headerHeight = 35.0;
-    const spacing = 5.0;
-    const rowHeight = 51.0;
+    const headerHeight = 26.0;
+    const spacing = AppSpacing.lg;
+    const cellHeight = 40.0;
+    const lineHeight = 1.0;
+    const rowHeight = cellHeight + lineHeight;
 
     // 선택한 날짜가 포함된 주가 달력 그리드에서 몇 번째 주인지 계산
     final firstDay = DateTime(selectedDay.year, selectedDay.month, 1);
@@ -86,11 +88,13 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
   /// 최대 달력 높이 반환 (6주 달력 기준)
   double _getMaxCalendarHeight() {
-    const headerHeight = 35.0;
-    const spacing = 5.0;
-    const rowHeight = 51.0;
-    const lastLineHeight = 1.0;
+    const headerHeight = 20.0; // 날짜 헤더 (텍스트 높이)
+    const spacing = AppSpacing.lg;
+    const cellHeight = 40.0;
+    const lineHeight = 1.0;
+    const rowHeight = cellHeight + lineHeight;
     const maxRowCount = 6;
+    const lastLineHeight = 1.0;
 
     return headerHeight + spacing + (maxRowCount * rowHeight) + lastLineHeight;
   }
@@ -242,7 +246,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: AppSpacing.xs),
+                  const SizedBox(height: AppSpacing.lg),
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: () async {
@@ -282,8 +286,6 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // 달력 영역만 PageView로 감싸서 좌우 스크롤 가능하게
-                                  // 카드 영역 고정을 위해 최대 높이(6주)로 고정
                                   SizedBox(
                                     height: _getMaxCalendarHeight(),
                                     child: PageView.builder(
@@ -342,7 +344,8 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                       },
                                     ),
                                   ),
-                                  if (isFutureDate)
+                                  if (isFutureDate) ...[
+                                    const SizedBox(height: 100),
                                     Center(
                                       child: Text(
                                         '미래 날짜입니다.',
@@ -350,8 +353,9 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                           color: AppColors.textDisabled,
                                         ),
                                       ),
-                                    )
-                                  else ...[
+                                    ),
+                                  ] else ...[
+                                    const SizedBox(height: AppSpacing.lg),
                                     TodayCard(
                                       selectedDay: selectedDay,
                                       today: today,

@@ -17,8 +17,9 @@ class ChartLinePoint {
 
 class ChartPreview extends StatelessWidget {
   final List<ChartLinePoint> data;
+  final bool isExample;
 
-  const ChartPreview({super.key, required this.data});
+  const ChartPreview({super.key, required this.data, this.isExample = false});
 
   @override
   Widget build(BuildContext context) {
@@ -63,9 +64,14 @@ class ChartPreview extends StatelessWidget {
           painter: _LineChartPainter(
             data: data,
             maxValue: maxVal,
-            cycleColor: const Color(0xFFEF5568),
-            periodColor: const Color(0xFF55BEB5),
+            cycleColor: isExample
+                ? AppColors.textDisabled
+                : const Color(0xFFEF5568),
+            periodColor: isExample
+                ? AppColors.textDisabled.withValues(alpha: 0.7)
+                : const Color(0xFF55BEB5),
             pointSpacing: pointSpacing,
+            isExample: isExample,
           ),
         );
 
@@ -78,9 +84,19 @@ class ChartPreview extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
-                    _legend(color: const Color(0xFFEF5568), text: '생리주기'),
+                    _legend(
+                      color: isExample
+                          ? AppColors.textDisabled
+                          : const Color(0xFFEF5568),
+                      text: '생리주기',
+                    ),
                     const SizedBox(width: AppSpacing.lg),
-                    _legend(color: const Color(0xFF55BEB5), text: '생리기간'),
+                    _legend(
+                      color: isExample
+                          ? AppColors.textDisabled.withValues(alpha: 0.7)
+                          : const Color(0xFF55BEB5),
+                      text: '생리기간',
+                    ),
                   ],
                 ),
               ),
@@ -128,6 +144,7 @@ class _LineChartPainter extends CustomPainter {
   final Color cycleColor;
   final Color periodColor;
   final double pointSpacing;
+  final bool isExample;
 
   _LineChartPainter({
     required this.data,
@@ -135,6 +152,7 @@ class _LineChartPainter extends CustomPainter {
     required this.cycleColor,
     required this.periodColor,
     required this.pointSpacing,
+    this.isExample = false,
   });
 
   final double topPadding = 30;
@@ -162,7 +180,9 @@ class _LineChartPainter extends CustomPainter {
 
     // 그리드 라인 (수평 4줄)
     final gridPaint = Paint()
-      ..color = AppColors.primaryLight.withValues(alpha: 0.6)
+      ..color = isExample
+          ? AppColors.textDisabled.withValues(alpha: 0.2)
+          : AppColors.primaryLight.withValues(alpha: 0.6)
       ..strokeWidth = 1;
     for (int i = 0; i < 4; i++) {
       final dy = topPadding + chartHeight * i / 3;
@@ -221,7 +241,11 @@ class _LineChartPainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '${values[i]}',
-            style: TextStyle(color: color, fontSize: 10, height: 1.1),
+            style: TextStyle(
+              color: isExample ? AppColors.textDisabled : color,
+              fontSize: 10,
+              height: 1.1,
+            ),
           ),
           textDirection: TextDirection.ltr,
         )..layout(maxWidth: 60);
@@ -272,7 +296,9 @@ class _LineChartPainter extends CustomPainter {
           text: data[i].label,
           style: AppTextStyles.caption.copyWith(
             fontSize: 10,
-            color: AppColors.textPrimary.withValues(alpha: 0.5),
+            color: isExample
+                ? AppColors.textDisabled.withValues(alpha: 0.5)
+                : AppColors.textPrimary.withValues(alpha: 0.5),
           ),
         ),
         textDirection: TextDirection.ltr,

@@ -229,7 +229,7 @@ class DayCell extends StatelessWidget {
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
-        '생리 예정',
+        '생리예정',
         style: TextStyle(fontSize: 8, color: AppColors.primary),
         maxLines: 1,
         overflow: TextOverflow.visible,

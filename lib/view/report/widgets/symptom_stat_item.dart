@@ -24,7 +24,10 @@ class SymptomStatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final barBg = AppColors.primaryLight.withValues(alpha: 0.5);
+    final isExample = data.color == AppColors.textDisabled;
+    final barBg = isExample
+        ? AppColors.textDisabled.withValues(alpha: 0.2)
+        : AppColors.primaryLight.withValues(alpha: 0.5);
     final barWidthRatio = data.ratio.clamp(0, 1).toDouble();
 
     return Column(
@@ -36,7 +39,9 @@ class SymptomStatItem extends StatelessWidget {
               data.label,
               style: AppTextStyles.body.copyWith(
                 fontSize: AppTextStyles.body.fontSize,
-                color: AppColors.textPrimary,
+                color: isExample
+                    ? AppColors.textDisabled
+                    : AppColors.textPrimary,
               ),
             ),
             const Spacer(),
@@ -46,14 +51,18 @@ class SymptomStatItem extends StatelessWidget {
                 vertical: AppSpacing.xs,
               ),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: isExample
+                    ? AppColors.textDisabled.withValues(alpha: 0.2)
+                    : AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Text(
                 '${data.count}회',
                 style: AppTextStyles.caption.copyWith(
                   fontSize: 10,
-                  color: AppColors.textPrimary,
+                  color: isExample
+                      ? AppColors.textDisabled
+                      : AppColors.textPrimary,
                 ),
               ),
             ),
