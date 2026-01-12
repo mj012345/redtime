@@ -62,13 +62,30 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   OverlayEntry? _tooltipOverlay; // 현재 표시 중인 툴팁
 
   @override
+  void initState() {
+    super.initState();
+    // 스크롤 시 툴팁만 닫기 (셀 선택 상태는 유지)
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients && _tooltipOverlay != null) {
+        _hideTooltipOnly();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _hideTooltip();
     _scrollController.dispose();
     super.dispose();
   }
 
-  /// 툴팁 숨기기
+  /// 툴팁만 숨기기 (셀 선택 상태는 유지)
+  void _hideTooltipOnly() {
+    _tooltipOverlay?.remove();
+    _tooltipOverlay = null;
+  }
+
+  /// 툴팁 숨기기 및 셀 선택 해제
   void _hideTooltip() {
     _tooltipOverlay?.remove();
     _tooltipOverlay = null;
@@ -176,19 +193,21 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
           if (symptom == '메모') {
             continue;
           }
-          if (symptom.contains('/')) {
-            final parts = symptom.split('/');
-            if (parts.length == 2 && parts[0] == categoryName) {
-              categorySymptoms.add(parts[1]);
+          // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
+          final lastSlashIndex = symptom.lastIndexOf('/');
+          if (lastSlashIndex != -1) {
+            final symptomCategory = symptom.substring(0, lastSlashIndex);
+            final symptomName = symptom.substring(lastSlashIndex + 1);
+            if (symptomCategory == categoryName) {
+              categorySymptoms.add(symptomName);
             }
           }
         }
 
         // '좋음'만 있어도 표시
         if (categorySymptoms.isNotEmpty) {
-          // 카테고리명 제외하고 증상만 표시
-          final symptomList = categorySymptoms.join(', ');
-          symptomTexts.add(symptomList);
+          // 카테고리명 제외하고 증상만 표시 (가로로 나열)
+          symptomTexts.add(categorySymptoms.join(', '));
         } else {
           // '좋음'이 있는지 확인 (다른 증상은 없지만 '좋음'만 있는 경우)
           final hasGood = symptoms.contains('${categoryName}/좋음');
@@ -231,13 +250,13 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       symptomTexts.add('기록된 증상이 없습니다.');
     }
 
-    // 기존 툴팁이 있으면 먼저 제거
-    _hideTooltip();
+    // 기존 툴팁이 있으면 먼저 제거 (셀 선택 상태는 유지)
+    _hideTooltipOnly();
 
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
     final cellSize = 20.0; // 셀 크기
-    final spacing = 6.0; // 셀 간격
+    final tooltipOffset = -3.0; // 툴팁 오프셋 (셀과 약간 겹치도록)
     final horizontalPadding = 10.0; // 툴팁 좌우 패딩
 
     // 텍스트의 실제 너비 계산
@@ -259,14 +278,14 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     final popupWidth = maxTextWidth + horizontalPadding * 2;
     final popupHeight = symptomTexts.length * 20.0 + 12.0; // 툴팁 높이 추정
 
-    // 기본: 셀의 오른쪽 하단
-    double left = tapPosition.dx + cellSize / 2 + spacing;
-    double top = tapPosition.dy + cellSize / 2 + spacing;
+    // 기본: 셀의 오른쪽 하단 (셀과 약간 겹치도록)
+    double left = tapPosition.dx + cellSize / 2 + tooltipOffset;
+    double top = tapPosition.dy + cellSize / 2 + tooltipOffset;
 
     // 오른쪽에 공간이 부족하면 왼쪽 하단으로 표시
     if (left + popupWidth > screenSize.width - 8) {
-      // 툴팁의 오른쪽 끝이 셀의 왼쪽 끝과 가깝게 표시
-      left = tapPosition.dx - cellSize / 2 - popupWidth - spacing;
+      // 툴팁의 오른쪽 끝이 셀의 왼쪽 끝과 가깝게 표시 (셀과 약간 겹치도록)
+      left = tapPosition.dx - cellSize / 2 - popupWidth - tooltipOffset;
     }
 
     // 왼쪽 경계 체크
@@ -286,9 +305,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.surface.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -454,206 +473,223 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       });
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 레이블 컬럼 (고정)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더 공간 (셀 높이 20 + 하단 간격 6 = 26)
-            const SizedBox(height: 26, width: 60),
-            // 레이블들 (셀 높이 20 + 하단 간격 6 = 26)
-            ...labelRows.map((labelRow) {
-              return SizedBox(
-                height: 26,
-                width: 60,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    labelRow.label,
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 10,
-                      color: const Color(0xFF555555),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                  ),
-                ),
-              );
-            }),
-          ],
-        ),
-        // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 날짜 헤더 (셀 높이 20 + 하단 간격 6 = 26)
-                SizedBox(
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        // 세로/가로 스크롤 모두 감지하여 툴팁만 닫기 (셀 선택 상태는 유지)
+        if (_tooltipOverlay != null) {
+          _hideTooltipOnly();
+        }
+        return false; // 다른 리스너도 처리할 수 있도록 false 반환
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 레이블 컬럼 (고정)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 헤더 공간 (셀 높이 20 + 하단 간격 6 = 26)
+              const SizedBox(height: 26, width: 60),
+              // 레이블들 (셀 높이 20 + 하단 간격 6 = 26)
+              ...labelRows.map((labelRow) {
+                return SizedBox(
                   height: 26,
-                  child: Row(
-                    children: dates.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final date = entry.value;
-                      final isFirstOfMonth =
-                          index == 0 ||
-                          date.day == 1 ||
-                          (index > 0 && dates[index - 1].month != date.month);
+                  width: 60,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      labelRow.label,
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 10,
+                        color: const Color(0xFF555555),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.visible,
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+          // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 날짜 헤더 (셀 높이 20 + 하단 간격 6 = 26)
+                  SizedBox(
+                    height: 26,
+                    child: Row(
+                      children: dates.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final date = entry.value;
+                        final isFirstOfMonth =
+                            index == 0 ||
+                            date.day == 1 ||
+                            (index > 0 && dates[index - 1].month != date.month);
 
-                      // 오늘 날짜인지 확인
-                      final today = DateTime.now();
-                      final isToday =
-                          date.year == today.year &&
-                          date.month == today.month &&
-                          date.day == today.day;
+                        // 오늘 날짜인지 확인
+                        final today = DateTime.now();
+                        final isToday =
+                            date.year == today.year &&
+                            date.month == today.month &&
+                            date.day == today.day;
 
-                      // 월의 1일인지 확인
-                      final isFirstDay = date.day == 1;
+                        // 월의 1일인지 확인
+                        final isFirstDay = date.day == 1;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: SizedBox(
-                          width: 20,
-                          child: Center(
-                            child: Text(
-                              _formatDate(date, isFirstOfMonth),
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 9,
-                                color: isToday
-                                    ? AppColors.primary
-                                    : AppColors.textPrimary.withValues(
-                                        alpha: isFirstDay ? 0.8 : 0.5,
-                                      ),
-                                fontWeight: isToday || isFirstDay
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: SizedBox(
+                            width: 20,
+                            child: Center(
+                              child: Text(
+                                _formatDate(date, isFirstOfMonth),
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 9,
+                                  color: isToday
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary.withValues(
+                                          alpha: isFirstDay ? 0.8 : 0.5,
+                                        ),
+                                  fontWeight: isToday || isFirstDay
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.clip,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.clip,
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
-                // 날짜 그리드
-                ...labelRows.asMap().entries.map((labelEntry) {
-                  final labelRow = labelEntry.value;
+                  // 날짜 그리드
+                  ...labelRows.asMap().entries.map((labelEntry) {
+                    final labelRow = labelEntry.value;
 
-                  return Row(
-                    children: dates.asMap().entries.map((dateEntry) {
-                      final date = dateEntry.value;
+                    return Row(
+                      children: dates.asMap().entries.map((dateEntry) {
+                        final date = dateEntry.value;
 
-                      // 해당 레이블의 증상이 있는지 확인
-                      final dateKey =
-                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                      final symptoms =
-                          widget.symptomData[dateKey] ?? <String>{};
+                        // 해당 레이블의 증상이 있는지 확인
+                        final dateKey =
+                            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                        final symptoms =
+                            widget.symptomData[dateKey] ?? <String>{};
 
-                      bool hasSymptom = false;
-                      Color cellColor = AppColors.disabled;
+                        bool hasSymptom = false;
+                        Color cellColor = AppColors.disabled;
 
-                      // 생리일과 가임기는 별도 처리
-                      if (labelRow.label == '생리일') {
-                        hasSymptom = widget.periodDays.any(
-                          (d) =>
-                              d.year == date.year &&
-                              d.month == date.month &&
-                              d.day == date.day,
-                        );
-                        if (hasSymptom) {
-                          cellColor = SymptomColors.period;
-                        }
-                      } else if (labelRow.label == '가임기') {
-                        hasSymptom = widget.fertileWindowDays.any(
-                          (d) =>
-                              d.year == date.year &&
-                              d.month == date.month &&
-                              d.day == date.day,
-                        );
-                        if (hasSymptom) {
-                          cellColor = SymptomColors.fertile;
-                        }
-                      } else if (labelRow.isCategory) {
-                        // 카테고리 행: 해당 카테고리의 증상 개수 확인
-                        final categorySymptoms = _getSymptomsForCategory(
-                          labelRow.label,
-                        );
-                        // "좋음" 증상이 있는지 확인
-                        final hasGood = symptoms.contains(
-                          '${labelRow.label}/좋음',
-                        );
-                        if (hasGood) {
-                          // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
-                          cellColor = SymptomColors.goodSymptom;
-                          hasSymptom = true;
-                        } else {
-                          // "카테고리/증상" 형식으로 해당 카테고리의 증상 개수 세기
-                          final symptomCount = categorySymptoms
-                              .where(
-                                (symptom) => symptoms.contains(
-                                  '${labelRow.label}/$symptom',
-                                ),
-                              )
-                              .length;
-                          if (symptomCount > 0) {
-                            // 증상 개수에 따라 투명도 적용
-                            double alpha = 1.0;
-                            if (symptomCount == 1) {
-                              alpha = 0.3;
-                            } else if (symptomCount == 2) {
-                              alpha = 0.6;
-                            } else {
-                              alpha = 1.0;
-                            }
-                            cellColor = SymptomColors.symptomBase.withValues(
-                              alpha: alpha,
-                            );
+                        // 생리일과 가임기는 별도 처리
+                        if (labelRow.label == '생리일') {
+                          hasSymptom = widget.periodDays.any(
+                            (d) =>
+                                d.year == date.year &&
+                                d.month == date.month &&
+                                d.day == date.day,
+                          );
+                          if (hasSymptom) {
+                            cellColor = SymptomColors.period;
+                          }
+                        } else if (labelRow.label == '가임기') {
+                          hasSymptom = widget.fertileWindowDays.any(
+                            (d) =>
+                                d.year == date.year &&
+                                d.month == date.month &&
+                                d.day == date.day,
+                          );
+                          if (hasSymptom) {
+                            cellColor = SymptomColors.fertile;
+                          }
+                        } else if (labelRow.isCategory) {
+                          // 카테고리 행: 해당 카테고리의 증상 개수 확인
+                          final categorySymptoms = _getSymptomsForCategory(
+                            labelRow.label,
+                          );
+                          // "좋음" 증상이 있는지 확인
+                          final hasGood = symptoms.contains(
+                            '${labelRow.label}/좋음',
+                          );
+                          if (hasGood) {
+                            // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
+                            cellColor = SymptomColors.goodSymptom;
                             hasSymptom = true;
+                          } else {
+                            // "카테고리/증상" 형식으로 해당 카테고리의 증상 개수 세기
+                            final symptomCount = categorySymptoms
+                                .where(
+                                  (symptom) => symptoms.contains(
+                                    '${labelRow.label}/$symptom',
+                                  ),
+                                )
+                                .length;
+                            if (symptomCount > 0) {
+                              // 증상 개수에 따라 투명도 적용
+                              double alpha = 1.0;
+                              if (symptomCount == 1) {
+                                alpha = 0.3;
+                              } else if (symptomCount == 2) {
+                                alpha = 0.6;
+                              } else {
+                                alpha = 1.0;
+                              }
+                              cellColor = SymptomColors.symptomBase.withValues(
+                                alpha: alpha,
+                              );
+                              hasSymptom = true;
+                            }
+                          }
+                        } else {
+                          // 일반 증상은 symptomData에서 확인 (이 경우는 카테고리가 표시되지 않으므로 사용하지 않음)
+                          // 하지만 혹시 모를 경우를 위해 처리
+                          hasSymptom = symptoms.contains(labelRow.label);
+                          if (hasSymptom) {
+                            // 증상이 1개인 경우로 처리
+                            cellColor = SymptomColors.symptomBase.withValues(
+                              alpha: 0.3,
+                            );
                           }
                         }
-                      } else {
-                        // 일반 증상은 symptomData에서 확인 (이 경우는 카테고리가 표시되지 않으므로 사용하지 않음)
-                        // 하지만 혹시 모를 경우를 위해 처리
-                        hasSymptom = symptoms.contains(labelRow.label);
-                        if (hasSymptom) {
-                          // 증상이 1개인 경우로 처리
-                          cellColor = SymptomColors.symptomBase.withValues(
-                            alpha: 0.3,
-                          );
+
+                        // 셀 키 생성 (날짜_레이블)
+                        final cellKey =
+                            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${labelRow.label}';
+                        final isSelected = _selectedCellKey == cellKey;
+
+                        // 셀 색상에 따라 테두리 색상 결정
+                        Color borderColor = SymptomColors.border;
+                        if (isSelected && cellColor != AppColors.disabled) {
+                          // 셀 색상보다 약간 진한 색상으로 테두리
+                          borderColor = _darkenColor(cellColor, 0.1);
+                        } else if (isSelected) {
+                          // 선택되었지만 기본 색상인 경우
+                          borderColor = AppColors.textSecondary;
                         }
-                      }
 
-                      // 셀 키 생성 (날짜_레이블)
-                      final cellKey =
-                          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${labelRow.label}';
-                      final isSelected = _selectedCellKey == cellKey;
-
-                      // 셀 색상에 따라 테두리 색상 결정
-                      Color borderColor = SymptomColors.border;
-                      if (isSelected && cellColor != AppColors.disabled) {
-                        // 셀 색상보다 약간 진한 색상으로 테두리
-                        borderColor = _darkenColor(cellColor, 0.1);
-                      } else if (isSelected) {
-                        // 선택되었지만 기본 색상인 경우
-                        borderColor = AppColors.textSecondary;
-                      }
-
-                      // 모든 셀에 테두리 추가
-                      return Padding(
-                        padding: EdgeInsets.only(right: 6, bottom: 6),
-                        child: Builder(
-                          builder: (cellContext) {
-                            return GestureDetector(
-                              onTapDown: hasSymptom
-                                  ? (details) {
-                                      // 기존 툴팁이 있으면 먼저 닫기
-                                      _hideTooltip();
+                        // 모든 셀에 테두리 추가
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) {
+                            // 간격 영역을 터치해도 툴팁 제거
+                            if (!hasSymptom) {
+                              _hideTooltip();
+                            }
+                          },
+                          child: Padding(
+                            padding: EdgeInsets.only(right: 6, bottom: 6),
+                            child: Builder(
+                              builder: (cellContext) {
+                                return GestureDetector(
+                                  onTapDown: (details) {
+                                    if (hasSymptom) {
+                                      // 증상이 있는 셀: 툴팁 표시
+                                      // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
+                                      _hideTooltipOnly();
 
                                       // 선택된 셀 업데이트
                                       setState(() {
@@ -688,34 +724,39 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                               }
                                             });
                                       }
+                                    } else {
+                                      // 증상이 없는 셀: 툴팁 제거 및 선택 해제
+                                      _hideTooltip();
                                     }
-                                  : null,
-                              child: Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: cellColor,
-                                  borderRadius: BorderRadius.circular(
-                                    2,
-                                  ), // 약간 둥근 모서리
-                                  border: Border.all(
-                                    color: borderColor,
-                                    width: isSelected ? 1.5 : 0.5,
+                                  },
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: cellColor,
+                                      borderRadius: BorderRadius.circular(
+                                        2,
+                                      ), // 약간 둥근 모서리
+                                      border: Border.all(
+                                        color: borderColor,
+                                        width: isSelected ? 1.5 : 0.5,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  );
-                }),
-              ],
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

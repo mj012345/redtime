@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 
 class DayCell extends StatelessWidget {
@@ -15,6 +16,8 @@ class DayCell extends StatelessWidget {
   final bool isSelected;
   final bool hasRecord;
   final int symptomCount; // 증상 개수 (0이면 표시 안 함)
+  final bool hasMemo; // 메모 여부
+  final bool hasRelationship; // 관계(하트) 여부
   final bool isPeriodStart;
   final bool isPeriodEnd;
   final bool isFertileStart;
@@ -35,6 +38,8 @@ class DayCell extends StatelessWidget {
     required this.isSelected,
     required this.hasRecord,
     this.symptomCount = 0,
+    this.hasMemo = false,
+    this.hasRelationship = false,
     required this.isPeriodStart,
     required this.isPeriodEnd,
     required this.isFertileStart,
@@ -48,7 +53,6 @@ class DayCell extends StatelessWidget {
     final showExpectedPeriod = !isOutsideMonth && isExpectedPeriod;
     final showExpectedFertile = !isOutsideMonth && isExpectedFertile;
     final showOvulation = !isOutsideMonth && isOvulation;
-    final showRecord = !isOutsideMonth && hasRecord;
     final showSelected = !isOutsideMonth && isSelected;
 
     Color? bgColor;
@@ -100,91 +104,82 @@ class DayCell extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                SizedBox(
-                  height: 18,
-                  child: Center(
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        fontSize: isToday ? 15 : 13,
-                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w300,
-                        color: textColor,
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 3,
+                right: 3,
+                top: 0,
+                bottom: 2,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  SizedBox(
+                    height: 16,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${date.day}',
+                          style: TextStyle(
+                            fontSize: isToday ? 13 : 11,
+                            fontWeight: isToday
+                                ? FontWeight.w700
+                                : FontWeight.w300,
+                            color: textColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (!isOutsideMonth)
+                          _buildMiddleIndicator(
+                            isPeriod: showPeriod,
+                            isPeriodStart: isPeriodStart,
+                            isPeriodEnd: isPeriodEnd,
+                            isFertile: showFertile,
+                            isOvulation: showOvulation,
+                            isFertileStart: isFertileStart,
+                            isExpectedPeriod: showExpectedPeriod,
+                            isExpectedPeriodStart: isExpectedPeriodStart,
+                          ),
+                      ],
                     ),
                   ),
-                ),
-                isOutsideMonth
-                    ? const SizedBox.shrink()
-                    : _buildMiddleIndicator(
-                        isPeriod: showPeriod,
-                        isPeriodStart: isPeriodStart,
-                        isPeriodEnd: isPeriodEnd,
-                        isFertile: showFertile,
-                        isOvulation: showOvulation,
-                        isFertileStart: isFertileStart,
-                        isExpectedPeriod: showExpectedPeriod,
-                        isExpectedPeriodStart: isExpectedPeriodStart,
-                      ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 1),
-                  child: showRecord
-                      ? Stack(
-                          alignment: Alignment.center,
-                          clipBehavior: Clip.none,
-                          children: [
-                            const SizedBox(
-                              height: 5,
-                              width: 5,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: AppColors.secondary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                            if (symptomCount > 1)
-                              Positioned(
-                                left: 7,
-                                top: -2,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Text(
-                                      '${symptomCount}',
-                                      style: const TextStyle(
-                                        fontSize: 8,
-                                        height: 1.0,
-                                        color: AppColors.secondary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.visible,
-                                    ),
-                                    Positioned(
-                                      right: -4,
-                                      top: -1,
-                                      child: Text(
-                                        '+',
-                                        style: const TextStyle(
-                                          fontSize: 6,
-                                          height: 1.0,
-                                          color: AppColors.secondary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        overflow: TextOverflow.visible,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
+                  const Spacer(),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 하트 아이콘 (관계)
+                        if (hasRelationship && !isOutsideMonth) ...[
+                          SvgPicture.asset(
+                            'assets/icons/heart.svg',
+                            width: 12,
+                            height: 12,
+                          ),
+                          const SizedBox(width: 3),
+                        ],
+                        // 증상 아이콘
+                        if (hasRecord && !isOutsideMonth) ...[
+                          SvgPicture.asset(
+                            'assets/icons/symptom.svg',
+                            width: 12,
+                            height: 12,
+                          ),
+                          if (hasMemo && !isOutsideMonth)
+                            const SizedBox(width: 3),
+                        ],
+                        // 메모 아이콘
+                        if (hasMemo && !isOutsideMonth)
+                          SvgPicture.asset(
+                            'assets/icons/memo.svg',
+                            width: 12,
+                            height: 12,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -207,50 +202,50 @@ class DayCell extends StatelessWidget {
     if (isPeriod && isPeriodStart && isPeriodEnd) {
       indicator = const Text(
         '시작/종료',
-        style: TextStyle(fontSize: 10, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodStart) {
       indicator = const Text(
         '시작',
-        style: TextStyle(fontSize: 10, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodEnd) {
       indicator = const Text(
         '종료',
-        style: TextStyle(fontSize: 10, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isOvulation) {
       indicator = const Text(
         '배란일',
-        style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
+        style: TextStyle(fontSize: 8, color: Color(0xFF2CA9D2)),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
         '생리 예정',
-        style: TextStyle(fontSize: 10, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isFertile && !isOvulation && isFertileStart) {
       indicator = const Text(
         '가임기',
-        style: TextStyle(fontSize: 10, color: Color(0xFF2CA9D2)),
+        style: TextStyle(fontSize: 8, color: Color(0xFF2CA9D2)),
+        maxLines: 1,
         overflow: TextOverflow.visible,
       );
     }
 
-    return SizedBox(
-      height: 14,
-      child: indicator == null
-          ? const SizedBox.shrink()
-          : OverflowBox(
-              minHeight: 14,
-              maxHeight: 16,
-              child: Center(child: indicator),
-            ),
-    );
+    if (indicator == null) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(height: 10, child: indicator);
   }
 }

@@ -18,6 +18,8 @@ class CalendarGrid extends StatelessWidget {
   final DateTime? expectedOvulationDay;
   final List<DateTime> symptomRecordDays;
   final int Function(DateTime) getSymptomCount; // 증상 개수 반환 함수
+  final bool Function(DateTime) hasMemoFor; // 메모 여부 확인 함수
+  final bool Function(DateTime) hasRelationshipFor; // 관계 여부 확인 함수
   final ValueChanged<DateTime> onSelect;
 
   const CalendarGrid({
@@ -35,6 +37,8 @@ class CalendarGrid extends StatelessWidget {
     required this.expectedOvulationDay,
     required this.symptomRecordDays,
     required this.getSymptomCount,
+    required this.hasMemoFor,
+    required this.hasRelationshipFor,
     required this.onSelect,
   });
 
@@ -88,7 +92,7 @@ class CalendarGrid extends StatelessWidget {
             for (final row in rows) ...[
               const HorizontalLine(),
               SizedBox(
-                height: 50,
+                height: 40,
                 child: Row(
                   children: row
                       .map(
@@ -121,6 +125,8 @@ class CalendarGrid extends StatelessWidget {
                                 _sameDay(day, selectedDay!),
                             hasRecord: _containsDate(symptomRecordDays, day),
                             symptomCount: getSymptomCount(day),
+                            hasMemo: hasMemoFor(day),
+                            hasRelationship: hasRelationshipFor(day),
                             isPeriodStart: _isRangeStart(periodCycles, day),
                             isPeriodEnd: _isRangeEnd(periodCycles, day),
                             isFertileStart: _isFertileWindowStart(
