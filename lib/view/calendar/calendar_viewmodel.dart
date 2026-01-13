@@ -109,7 +109,7 @@ class CalendarViewModel extends ChangeNotifier {
     SymptomCategory('소화', [
       ['좋음', '변비', '설사', '가스', '메스꺼움'],
     ]),
-    SymptomCategory('컨디션/욕구', [
+    SymptomCategory('컨디션', [
       ['좋음', '오한', '발열', '몸살', '감기', '피로', '집중력저하', '불면증', '졸림', '식욕', '성욕'],
     ]),
     SymptomCategory('피부', [

@@ -170,8 +170,8 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     }
 
     final scrollPosition = _scrollController.position.pixels;
-    // 셀 너비 (20) + 간격 (6) = 26
-    const cellWidth = 26.0;
+    // 셀 너비 (16) + 간격 (6) = 22
+    const cellWidth = 22.0;
 
     // 스크롤 위치를 기반으로 첫 번째 보이는 날짜 인덱스 계산
     final firstVisibleIndex = (scrollPosition / cellWidth).floor();
@@ -710,32 +710,32 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
             children: [
               // 월 표시 헤더
               SizedBox(
-                height: 26,
-                width: 60,
+                height: 22,
+                width: 30,
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.centerRight,
                   child: Text(
                     _visibleFirstMonthYear ?? '',
                     style: AppTextStyles.caption.copyWith(
                       fontSize: 9,
-                      color: AppColors.textPrimary.withValues(alpha: 0.8),
+                      color: AppColors.textPrimary.withValues(alpha: 0.5),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
-              // 레이블들 (셀 높이 20 + 하단 간격 6 = 26)
+              // 레이블들 (셀 높이 16 + 하단 간격 6 = 22)
               ...labelRows.map((labelRow) {
                 return SizedBox(
-                  height: 26,
-                  width: 60,
+                  height: 22,
+                  width: 30,
                   child: Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment(1.0, -0.5),
                     child: Text(
                       labelRow.label,
                       style: AppTextStyles.caption.copyWith(
                         fontSize: 10,
-                        color: const Color(0xFF555555),
+                        color: AppColors.secondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.visible,
@@ -745,6 +745,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
               }),
             ],
           ),
+          SizedBox(width: 5),
           // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
           Expanded(
             child: SingleChildScrollView(
@@ -753,10 +754,11 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 날짜 헤더 (셀 높이 20 + 하단 간격 6 = 26)
+                  // 날짜 헤더 (셀 높이 16 + 하단 간격 6 = 22)
                   SizedBox(
-                    height: 26,
+                    height: 22,
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: dates.asMap().entries.map((entry) {
                         final index = entry.key;
                         final date = entry.value;
@@ -778,7 +780,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: SizedBox(
-                            width: 20,
+                            width: 16,
                             child: Center(
                               child: Text(
                                 _formatDate(date, isFirstOfMonth),
@@ -807,6 +809,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                     final labelRow = labelEntry.value;
 
                     return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: dates.asMap().entries.map((dateEntry) {
                         final date = dateEntry.value;
 
@@ -985,8 +988,8 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                       }
                                     },
                                     child: Container(
-                                      width: 20,
-                                      height: 20,
+                                      width: 16,
+                                      height: 16,
                                       decoration: BoxDecoration(
                                         color: cellColor,
                                         borderRadius: BorderRadius.circular(
