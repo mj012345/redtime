@@ -35,6 +35,10 @@ class SymptomCalendarHeatmap extends StatefulWidget {
   /// 증상 카테고리 리스트
   final List<SymptomCategory> symptomCatalog;
 
+  /// 메모 데이터
+  /// Key: 날짜 키 (yyyy-MM-dd), Value: 메모 내용
+  final Map<String, String> memos;
+
   /// 시작 날짜 (최근 40일 기준)
   final DateTime startDate;
 
@@ -50,6 +54,7 @@ class SymptomCalendarHeatmap extends StatefulWidget {
     required this.periodDays,
     required this.fertileWindowDays,
     required this.symptomCatalog,
+    required this.memos,
     required this.startDate,
     required this.endDate,
     this.isExample = false,
@@ -78,6 +83,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   List<DateTime>? _cachedDates;
   List<_LabelRow>? _cachedLabelRows;
   Map<String, Set<String>>? _cachedSymptomData;
+  Map<String, String>? _cachedMemos;
   List<DateTime>? _cachedPeriodDays;
   List<DateTime>? _cachedFertileWindowDays;
   bool? _cachedIsExample;
@@ -178,9 +184,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
     if (firstVisibleIndex >= 0 && firstVisibleIndex < _cachedDates!.length) {
       final firstVisibleDate = _cachedDates![firstVisibleIndex];
-      // 년도 2자리로 표시 (예: 25/1)
+      // 년도 2자리로 표시 (예: 25.1.)
       final year = firstVisibleDate.year % 100;
-      final monthYear = '$year/${firstVisibleDate.month}';
+      final monthYear = '$year.${firstVisibleDate.month}.';
 
       if (_visibleFirstMonthYear != monthYear) {
         setState(() {
@@ -234,6 +240,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     if (oldWidget.startDate != widget.startDate ||
         oldWidget.endDate != widget.endDate ||
         oldWidget.symptomData != widget.symptomData ||
+        oldWidget.memos != widget.memos ||
         oldWidget.periodDays != widget.periodDays ||
         oldWidget.fertileWindowDays != widget.fertileWindowDays ||
         oldWidget.isExample != widget.isExample ||
@@ -283,6 +290,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     _cachedDates = dates;
     _cachedLabelRows = _generateLabelRows();
     _cachedSymptomData = widget.symptomData;
+    _cachedMemos = widget.memos;
     _cachedPeriodDays = widget.periodDays;
     _cachedFertileWindowDays = widget.fertileWindowDays;
     _cachedIsExample = widget.isExample;
@@ -400,6 +408,14 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         if (isFertileDay) {
           symptomTexts.add('가임기');
         }
+      } else if (labelRow.label == '메모') {
+        final memos = _cachedMemos ?? widget.memos;
+        final dateKey =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        final memo = memos[dateKey];
+        if (memo != null && memo.trim().isNotEmpty) {
+          symptomTexts.add(memo);
+        }
       } else if (labelRow.isCategory) {
         // 카테고리 행인 경우, 해당 카테고리의 증상만 표시
         final categoryName = labelRow.label;
@@ -471,7 +487,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
-    final cellSize = 20.0; // 셀 크기
+    final cellSize = 16.0; // 셀 크기
     final tooltipOffset = -3.0; // 툴팁 오프셋 (셀과 약간 겹치도록)
     final horizontalPadding = 10.0; // 툴팁 좌우 패딩
 
@@ -501,7 +517,8 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     // 오른쪽에 공간이 부족하면 왼쪽 하단으로 표시
     if (left + popupWidth > screenSize.width - 8) {
       // 툴팁의 오른쪽 끝이 셀의 왼쪽 끝과 가깝게 표시 (셀과 약간 겹치도록)
-      left = tapPosition.dx - cellSize / 2 - popupWidth - tooltipOffset;
+      // tooltipOffset을 빼서 셀과 더 가깝게 (오른쪽 표시와 동일한 거리)
+      left = tapPosition.dx - cellSize / 3 - popupWidth - tooltipOffset;
     }
 
     // 왼쪽 경계 체크
@@ -670,6 +687,36 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       }
     }
 
+    // 메모가 있는 경우 '메모' 레이블 추가
+    final memos = _cachedMemos ?? widget.memos;
+    bool hasMemo = false;
+    for (final entry in memos.entries) {
+      final dateKey = entry.key;
+      final memo = entry.value;
+      if (memo.trim().isNotEmpty) {
+        try {
+          final parts = dateKey.split('-');
+          if (parts.length == 3) {
+            final date = DateTime(
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+              int.parse(parts[2]),
+            );
+            if (!date.isBefore(widget.startDate) &&
+                !date.isAfter(widget.endDate)) {
+              hasMemo = true;
+              break;
+            }
+          }
+        } catch (e) {
+          // 날짜 파싱 실패 시 무시
+        }
+      }
+    }
+    if (hasMemo) {
+      rows.add(_LabelRow(label: '메모', isCategory: false));
+    }
+
     return rows;
   }
 
@@ -719,7 +766,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                     style: AppTextStyles.caption.copyWith(
                       fontSize: 9,
                       color: AppColors.textPrimary.withValues(alpha: 0.5),
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.normal,
                     ),
                   ),
                 ),
@@ -856,6 +903,17 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                 ? AppColors.textDisabled.withValues(alpha: 0.2)
                                 : SymptomColors.fertile;
                           }
+                        } else if (labelRow.label == '메모') {
+                          final memos = _cachedMemos ?? widget.memos;
+                          final memo = memos[dateKey];
+                          if (memo != null && memo.trim().isNotEmpty) {
+                            hasSymptom = true;
+                            cellColor = isExample
+                                ? AppColors.textDisabled.withValues(alpha: 0.3)
+                                : AppColors.textDisabled.withValues(
+                                    alpha: 0.5,
+                                  ); // 진한 회색
+                          }
                         } else if (labelRow.isCategory) {
                           // 카테고리 행: 해당 카테고리의 증상 개수 확인
                           final categorySymptoms = _getSymptomsForCategory(
@@ -917,14 +975,25 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                             '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${labelRow.label}';
                         final isSelected = _selectedCellKey == cellKey;
 
+                        // 가임기 셀에 관계 기록이 있는지 확인
+                        final hasRelationship =
+                            labelRow.label == '가임기' &&
+                            (symptoms.contains('기타/관계') ||
+                                symptoms.contains('관계'));
+
                         // 셀 색상에 따라 테두리 색상 결정
                         Color borderColor = SymptomColors.border;
-                        if (isSelected && cellColor != AppColors.disabled) {
-                          // 셀 색상보다 약간 진한 색상으로 테두리
-                          borderColor = _darkenColor(cellColor, 0.1);
-                        } else if (isSelected) {
-                          // 선택되었지만 기본 색상인 경우
-                          borderColor = AppColors.textSecondary;
+                        if (isSelected) {
+                          if (cellColor != AppColors.disabled) {
+                            // 셀 색상보다 약간 진한 색상으로 테두리
+                            borderColor = _darkenColor(cellColor, 0.1);
+                          } else {
+                            // 증상이 없는 셀: 셀 색상보다 약간 진한 회색으로 테두리
+                            borderColor = _darkenColor(
+                              AppColors.disabled,
+                              0.15,
+                            );
+                          }
                         }
 
                         // 모든 셀에 테두리 추가
@@ -932,10 +1001,8 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTapDown: (details) {
-                              // 간격 영역을 터치해도 툴팁 제거
-                              if (!hasSymptom) {
-                                _hideTooltip();
-                              }
+                              // 간격 영역을 터치하면 툴팁만 제거 (셀 선택 상태는 유지)
+                              _hideTooltipOnly();
                             },
                             child: Padding(
                               padding: EdgeInsets.only(right: 6, bottom: 6),
@@ -943,16 +1010,16 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                 builder: (cellContext) {
                                   return GestureDetector(
                                     onTapDown: (details) {
+                                      // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
+                                      _hideTooltipOnly();
+
+                                      // 선택된 셀 업데이트
+                                      setState(() {
+                                        _selectedCellKey = cellKey;
+                                      });
+
                                       if (hasSymptom) {
                                         // 증상이 있는 셀: 툴팁 표시
-                                        // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
-                                        _hideTooltipOnly();
-
-                                        // 선택된 셀 업데이트
-                                        setState(() {
-                                          _selectedCellKey = cellKey;
-                                        });
-
                                         // 터치 위치를 전역 좌표로 변환
                                         final RenderBox? box =
                                             cellContext.findRenderObject()
@@ -982,24 +1049,35 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                                 }
                                               });
                                         }
-                                      } else {
-                                        // 증상이 없는 셀: 툴팁 제거 및 선택 해제
-                                        _hideTooltip();
                                       }
+                                      // 증상이 없는 셀: 테두리만 표시 (툴팁은 표시하지 않음)
                                     },
-                                    child: Container(
-                                      width: 16,
-                                      height: 16,
-                                      decoration: BoxDecoration(
-                                        color: cellColor,
-                                        borderRadius: BorderRadius.circular(
-                                          2,
-                                        ), // 약간 둥근 모서리
-                                        border: Border.all(
-                                          color: borderColor,
-                                          width: isSelected ? 1.5 : 0.5,
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: cellColor,
+                                            borderRadius: BorderRadius.circular(
+                                              2,
+                                            ), // 약간 둥근 모서리
+                                            border: Border.all(
+                                              color: borderColor,
+                                              width: isSelected ? 1.5 : 0.5,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        if (hasRelationship)
+                                          Positioned.fill(
+                                            child: Center(
+                                              child: Text(
+                                                '❤️',
+                                                style: TextStyle(fontSize: 8),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   );
                                 },

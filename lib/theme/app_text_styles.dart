@@ -8,7 +8,7 @@ class AppTextStyles {
 
   static TextStyle title = const TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
   );
@@ -27,4 +27,3 @@ class AppTextStyles {
     color: AppColors.textSecondary,
   );
 }
-

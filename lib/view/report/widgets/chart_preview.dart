@@ -59,8 +59,9 @@ class ChartPreview extends StatelessWidget {
           enableScroll = true;
         }
 
+        // CustomPaint 높이: topPadding(30) + chartHeight(100) + 라벨간격(3) + 텍스트높이(약12) = 145
         final chartWidget = CustomPaint(
-          size: Size(chartWidth, 230),
+          size: Size(chartWidth, 145),
           painter: _LineChartPainter(
             data: data,
             maxValue: maxVal,
@@ -75,46 +76,38 @@ class ChartPreview extends StatelessWidget {
           ),
         );
 
-        return SizedBox(
-          height: 240,
-          child: Column(
-            children: [
-              // 레전드 (왼쪽 정렬)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    _legend(
-                      color: isExample
-                          ? AppColors.textDisabled
-                          : const Color(0xFFEF5568),
-                      text: '생리주기',
-                    ),
-                    const SizedBox(width: AppSpacing.lg),
-                    _legend(
-                      color: isExample
-                          ? AppColors.textDisabled.withValues(alpha: 0.7)
-                          : const Color(0xFF55BEB5),
-                      text: '생리기간',
-                    ),
-                  ],
-                ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 레전드 (왼쪽 정렬)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  _legend(
+                    color: isExample
+                        ? AppColors.textDisabled
+                        : const Color(0xFFEF5568),
+                    text: '생리주기',
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  _legend(
+                    color: isExample
+                        ? AppColors.textDisabled.withValues(alpha: 0.7)
+                        : const Color(0xFF55BEB5),
+                    text: '생리기간',
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.xl),
-              // 차트
-              Expanded(
-                child: enableScroll
-                    ? SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: chartWidget,
-                      )
-                    : Align(
-                        alignment: Alignment.centerLeft,
-                        child: chartWidget,
-                      ),
-              ),
-            ],
-          ),
+            ),
+            // 차트
+            enableScroll
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: chartWidget,
+                  )
+                : Align(alignment: Alignment.centerLeft, child: chartWidget),
+          ],
         );
       },
     );
@@ -156,10 +149,8 @@ class _LineChartPainter extends CustomPainter {
   });
 
   final double topPadding = 30;
-  final double bottomPadding = 50;
   final double leftPadding = 12;
   final double chartHeight = 100;
-  static const double minLineSpacing = 35.0; // 주기와 기간 라인 사이 최소 간격 (텍스트 포함)
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -172,8 +163,9 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // 생리 기간의 변동 폭이 너무 작으면 최소값을 조정하여 변동 폭 확대
+    // 단, 모든 값이 같을 때(periodRange == 0)는 조정하지 않음
     final periodRange = periodMax - periodMin;
-    if (periodRange < 3) {
+    if (periodRange > 0 && periodRange < 3) {
       // 변동 폭이 3 미만이면 최소값을 줄여서 변동 폭을 확대
       periodMin = (periodMin - 1).clamp(1, periodMax);
       periodMax = (periodMax + 1).clamp(periodMin, 999);
@@ -190,23 +182,31 @@ class _LineChartPainter extends CustomPainter {
       canvas.drawLine(Offset(0, dy), Offset(size.width, dy), gridPaint);
     }
 
-    // 좌표 변환 (생리주기용)
+    // 그래프 영역 분리: 상단 공백 10%, 생리주기 50%, 중간 공백 20%, 생리 기간 10%, 하단 공백 10%
+    final topGap = chartHeight * 0.1;
+    final cycleChartHeight = chartHeight * 0.5;
+    final periodChartHeight = chartHeight * 0.1;
+    final cycleChartTop = topPadding + topGap;
+    final periodChartTop =
+        topPadding + chartHeight - periodChartHeight - topGap;
+
+    // 좌표 변환 (생리주기용 - 상단 영역)
     Offset ptCycle(int idx, int value) {
       final ratio = value / maxValue;
       final x = leftPadding + idx * pointSpacing;
-      final y = topPadding + chartHeight * (1 - ratio);
+      // 상단 50% 영역 사용 (10% 공백 후 시작)
+      final y = cycleChartTop + cycleChartHeight * (1 - ratio);
       return Offset(x, y);
     }
 
-    // 좌표 변환 (생리 기간용 - 별도 스케일 사용)
+    // 좌표 변환 (생리 기간용 - 하단 영역)
     Offset ptPeriod(int idx, int value) {
       final periodRange = periodMax - periodMin;
       final effectiveRange = periodRange > 0 ? periodRange : 1;
       final ratio = (value - periodMin) / effectiveRange;
       final x = leftPadding + idx * pointSpacing;
-      // 생리 기간은 그래프 하단 60% 영역을 사용하여 변동 폭을 더 크게 표시
-      final periodChartHeight = chartHeight * 0.3;
-      final y = topPadding + chartHeight - periodChartHeight * (1 - ratio);
+      // 하단 10% 영역 사용 (10% 공백 전까지)
+      final y = periodChartTop + periodChartHeight * (1 - ratio);
       return Offset(x, y);
     }
 
@@ -251,72 +251,21 @@ class _LineChartPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
         )..layout(maxWidth: 60);
 
-        final dy = isTop ? p.dy - 20 : p.dy - 18;
+        final dy = isTop ? p.dy - 17 : p.dy - 15;
         final dx = p.dx - textPainter.width / 2;
         textPainter.paint(canvas, Offset(dx, dy));
       }
     }
 
-    // 데이터 포인트
+    // 데이터 포인트 (영역이 분리되어 있으므로 텍스트 간격 조정 불필요)
     final cyclePoints = <Offset>[];
     final periodPoints = <Offset>[];
     final cycleValues = <int>[];
     final periodValues = <int>[];
 
     for (int i = 0; i < data.length; i++) {
-      var cyclePoint = ptCycle(i, data[i].cycleDays);
-      var periodPoint = ptPeriod(i, data[i].periodDays);
-
-      // 주기 텍스트 위치 (포인트 위 20픽셀)
-      final cycleTextTop = cyclePoint.dy - 20;
-      // 기간 텍스트 위치 (포인트 위 18픽셀)
-      final periodTextTop = periodPoint.dy - 18;
-
-      // 텍스트 높이 (fontSize 10, height 1.1 기준)
-      const textHeight = 11.0;
-
-      // 주기 텍스트 하단과 기간 텍스트 상단 사이의 거리 확인
-      final cycleTextBottom = cycleTextTop + textHeight;
-      final textDistance = periodTextTop - cycleTextBottom;
-
-      // 텍스트가 겹치거나 최소 간격보다 작으면 조정
-      if (textDistance < minLineSpacing) {
-        // 필요한 간격 계산
-        final requiredSpacing = minLineSpacing - textDistance;
-
-        // 주기는 위로, 기간은 아래로 조정
-        cyclePoint = Offset(cyclePoint.dx, cyclePoint.dy - requiredSpacing / 2);
-        periodPoint = Offset(
-          periodPoint.dx,
-          periodPoint.dy + requiredSpacing / 2,
-        );
-
-        // 차트 영역을 벗어나지 않도록 제한
-        final minCycleY = topPadding + 5;
-        final maxPeriodY = topPadding + chartHeight - 5;
-
-        if (cyclePoint.dy < minCycleY) {
-          cyclePoint = Offset(cyclePoint.dx, minCycleY);
-          // 기간 포인트도 다시 조정 (텍스트 간격 유지)
-          // 주기 텍스트 하단: minCycleY - 20 + textHeight
-          // 기간 텍스트 상단: periodPoint.dy - 18
-          // 간격: (periodPoint.dy - 18) - (minCycleY - 20 + textHeight) >= minLineSpacing
-          final minPeriodY = minCycleY - 20 + textHeight + minLineSpacing + 18;
-          periodPoint = Offset(periodPoint.dx, minPeriodY);
-        }
-
-        if (periodPoint.dy > maxPeriodY) {
-          periodPoint = Offset(periodPoint.dx, maxPeriodY);
-          // 주기 포인트도 다시 조정 (텍스트 간격 유지)
-          // 기간 텍스트 상단: maxPeriodY - 18
-          // 주기 텍스트 하단: cyclePoint.dy - 20 + textHeight
-          // 간격: (maxPeriodY - 18) - (cyclePoint.dy - 20 + textHeight) >= minLineSpacing
-          final maxCycleY = maxPeriodY - 18 - minLineSpacing - textHeight + 20;
-          if (maxCycleY >= minCycleY) {
-            cyclePoint = Offset(cyclePoint.dx, maxCycleY);
-          }
-        }
-      }
+      final cyclePoint = ptCycle(i, data[i].cycleDays);
+      final periodPoint = ptPeriod(i, data[i].periodDays);
 
       cyclePoints.add(cyclePoint);
       periodPoints.add(periodPoint);
@@ -340,9 +289,6 @@ class _LineChartPainter extends CustomPainter {
 
     // X축 라벨 (가장 아래 그리드 라인 바로 아래에 배치, 카드 영역 안쪽에 위치)
     final bottomGridLineY = topPadding + chartHeight;
-    // X축 라벨이 카드 영역을 벗어나지 않도록 하단 여백 확보
-    final minBottomMargin = 10.0; // 하단 여백
-    final maxLabelY = size.height - minBottomMargin;
 
     for (int i = 0; i < data.length; i++) {
       final p = periodPoints[i];
@@ -359,27 +305,11 @@ class _LineChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      // 가장 하단 그리드 라인 바로 아래에 배치 (그리드 라인 밖으로)
-      // 그리드 라인 아래 최소 간격을 두고 배치
-      final labelSpacing = 8.0; // 그리드 라인과의 간격
-      // 라벨의 상단이 그리드 라인 아래에 오도록 보장
-      final minLabelY = bottomGridLineY + labelSpacing;
+      // 가장 하단 그리드 라인 바로 아래에 배치
+      final labelSpacing = 3.0; // 그리드 라인과의 간격
+      final labelY = bottomGridLineY + labelSpacing;
 
-      // 라벨이 카드 영역 안쪽에 위치하도록 확인
-      final labelBottom = minLabelY + labelPainter.height;
-      final finalLabelY = labelBottom > maxLabelY
-          ? maxLabelY - labelPainter.height
-          : minLabelY;
-
-      // 최종 라벨 위치가 그리드 라인 아래에 있는지 확인
-      final safeLabelY = finalLabelY < bottomGridLineY
-          ? bottomGridLineY + labelSpacing
-          : finalLabelY;
-
-      labelPainter.paint(
-        canvas,
-        Offset(p.dx - labelPainter.width / 2, safeLabelY),
-      );
+      labelPainter.paint(canvas, Offset(p.dx - labelPainter.width / 2, labelY));
     }
   }
 

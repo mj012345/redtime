@@ -607,6 +607,7 @@ class ReportView extends StatelessWidget {
                                       ? vm.fertileWindowDays
                                       : _generateExampleFertileDays(vm.today),
                                   symptomCatalog: vm.symptomCatalog,
+                                  memos: hasData ? vm.memos : {},
                                   startDate: DateTime(
                                     vm.today.year - 1,
                                     vm.today.month,
@@ -706,11 +707,6 @@ class ReportView extends StatelessWidget {
                             children: [
                               // 예시 차트 데이터 (회색)
                               Container(
-                                height: 220,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.xs,
-                                  vertical: AppSpacing.sm,
-                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.surface,
                                   borderRadius: BorderRadius.circular(
@@ -725,7 +721,6 @@ class ReportView extends StatelessWidget {
                               // 레이어 문구 (반투명)
                               Positioned.fill(
                                 child: Container(
-                                  height: 220,
                                   decoration: BoxDecoration(
                                     color: AppColors.surface.withValues(
                                       alpha: 0.7,
@@ -776,11 +771,6 @@ class ReportView extends StatelessWidget {
                           )
                         else
                           Container(
-                            height: 220,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                              vertical: AppSpacing.sm,
-                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(
