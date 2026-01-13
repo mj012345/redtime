@@ -159,6 +159,7 @@ class _LineChartPainter extends CustomPainter {
   final double bottomPadding = 50;
   final double leftPadding = 12;
   final double chartHeight = 100;
+  static const double minLineSpacing = 35.0; // 주기와 기간 라인 사이 최소 간격 (텍스트 포함)
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -263,8 +264,62 @@ class _LineChartPainter extends CustomPainter {
     final periodValues = <int>[];
 
     for (int i = 0; i < data.length; i++) {
-      cyclePoints.add(ptCycle(i, data[i].cycleDays));
-      periodPoints.add(ptPeriod(i, data[i].periodDays));
+      var cyclePoint = ptCycle(i, data[i].cycleDays);
+      var periodPoint = ptPeriod(i, data[i].periodDays);
+
+      // 주기 텍스트 위치 (포인트 위 20픽셀)
+      final cycleTextTop = cyclePoint.dy - 20;
+      // 기간 텍스트 위치 (포인트 위 18픽셀)
+      final periodTextTop = periodPoint.dy - 18;
+
+      // 텍스트 높이 (fontSize 10, height 1.1 기준)
+      const textHeight = 11.0;
+
+      // 주기 텍스트 하단과 기간 텍스트 상단 사이의 거리 확인
+      final cycleTextBottom = cycleTextTop + textHeight;
+      final textDistance = periodTextTop - cycleTextBottom;
+
+      // 텍스트가 겹치거나 최소 간격보다 작으면 조정
+      if (textDistance < minLineSpacing) {
+        // 필요한 간격 계산
+        final requiredSpacing = minLineSpacing - textDistance;
+
+        // 주기는 위로, 기간은 아래로 조정
+        cyclePoint = Offset(cyclePoint.dx, cyclePoint.dy - requiredSpacing / 2);
+        periodPoint = Offset(
+          periodPoint.dx,
+          periodPoint.dy + requiredSpacing / 2,
+        );
+
+        // 차트 영역을 벗어나지 않도록 제한
+        final minCycleY = topPadding + 5;
+        final maxPeriodY = topPadding + chartHeight - 5;
+
+        if (cyclePoint.dy < minCycleY) {
+          cyclePoint = Offset(cyclePoint.dx, minCycleY);
+          // 기간 포인트도 다시 조정 (텍스트 간격 유지)
+          // 주기 텍스트 하단: minCycleY - 20 + textHeight
+          // 기간 텍스트 상단: periodPoint.dy - 18
+          // 간격: (periodPoint.dy - 18) - (minCycleY - 20 + textHeight) >= minLineSpacing
+          final minPeriodY = minCycleY - 20 + textHeight + minLineSpacing + 18;
+          periodPoint = Offset(periodPoint.dx, minPeriodY);
+        }
+
+        if (periodPoint.dy > maxPeriodY) {
+          periodPoint = Offset(periodPoint.dx, maxPeriodY);
+          // 주기 포인트도 다시 조정 (텍스트 간격 유지)
+          // 기간 텍스트 상단: maxPeriodY - 18
+          // 주기 텍스트 하단: cyclePoint.dy - 20 + textHeight
+          // 간격: (maxPeriodY - 18) - (cyclePoint.dy - 20 + textHeight) >= minLineSpacing
+          final maxCycleY = maxPeriodY - 18 - minLineSpacing - textHeight + 20;
+          if (maxCycleY >= minCycleY) {
+            cyclePoint = Offset(cyclePoint.dx, maxCycleY);
+          }
+        }
+      }
+
+      cyclePoints.add(cyclePoint);
+      periodPoints.add(periodPoint);
       cycleValues.add(data[i].cycleDays);
       periodValues.add(data[i].periodDays);
     }

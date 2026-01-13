@@ -65,15 +65,227 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   String? _selectedCellKey; // 선택된 셀의 키 (날짜_레이블)
   OverlayEntry? _tooltipOverlay; // 현재 표시 중인 툴팁
 
+  // Lazy loading을 위한 상태
+  late DateTime _displayedStartDate; // 현재 표시 중인 시작 날짜
+  bool _isLoadingMore = false; // 추가 데이터 로딩 중인지
+  static const int _initialDays = 60; // 초기 표시 일수
+  static const int _loadMoreDays = 60; // 추가 로드할 일수
+
+  // 현재 보이는 첫 번째 날짜의 년/월 (스크롤 위치 기반)
+  String? _visibleFirstMonthYear;
+
+  // 캐시된 데이터
+  List<DateTime>? _cachedDates;
+  List<_LabelRow>? _cachedLabelRows;
+  Map<String, Set<String>>? _cachedSymptomData;
+  List<DateTime>? _cachedPeriodDays;
+  List<DateTime>? _cachedFertileWindowDays;
+  bool? _cachedIsExample;
+
   @override
   void initState() {
     super.initState();
-    // 스크롤 시 툴팁만 닫기 (셀 선택 상태는 유지)
-    _scrollController.addListener(() {
-      if (_scrollController.hasClients && _tooltipOverlay != null) {
-        _hideTooltipOnly();
+    // 초기 표시 시작 날짜 설정 (최근 60일)
+    final endDate = DateTime(
+      widget.endDate.year,
+      widget.endDate.month,
+      widget.endDate.day,
+    );
+
+    // 최초 화면 진입 시에는 항상 최근 60일만 표시
+    _displayedStartDate = endDate.subtract(
+      const Duration(days: _initialDays - 1),
+    );
+
+    // 실제 시작 날짜보다 이전으로 가지 않도록 제한
+    final actualStartDate = DateTime(
+      widget.startDate.year,
+      widget.startDate.month,
+      widget.startDate.day,
+    );
+    if (_displayedStartDate.isBefore(actualStartDate)) {
+      _displayedStartDate = actualStartDate;
+    }
+
+    // 스크롤 리스너: 툴팁 닫기 + lazy loading
+    _scrollController.addListener(_onScroll);
+
+    // 초기 데이터 캐싱
+    _updateCache();
+
+    // 초기 월 설정
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateVisibleMonth();
+    });
+  }
+
+  /// 최대 표시 가능한 시작 날짜 계산 (오늘이 1월이면 작년 1월 1일까지)
+  DateTime _getMaxStartDate() {
+    final endDate = DateTime(
+      widget.endDate.year,
+      widget.endDate.month,
+      widget.endDate.day,
+    );
+
+    // 오늘이 1월이면 작년 1월 1일까지, 그 외에는 widget.startDate까지
+    if (endDate.month == 1) {
+      return DateTime(endDate.year - 1, 1, 1);
+    }
+
+    // 실제 시작 날짜 반환
+    return DateTime(
+      widget.startDate.year,
+      widget.startDate.month,
+      widget.startDate.day,
+    );
+  }
+
+  /// 스크롤 이벤트 처리
+  void _onScroll() {
+    // 툴팁 닫기
+    if (_scrollController.hasClients && _tooltipOverlay != null) {
+      _hideTooltipOnly();
+    }
+
+    // 현재 보이는 첫 번째 날짜의 월 업데이트
+    _updateVisibleMonth();
+
+    // 왼쪽 끝에 도달했는지 확인 (추가 데이터 로드)
+    if (_scrollController.hasClients && !_isLoadingMore) {
+      final position = _scrollController.position;
+      final maxStartDate = _getMaxStartDate();
+      // 왼쪽 끝에서 100픽셀 이내에 도달하면 추가 데이터 로드
+      if (position.pixels <= 100 && _displayedStartDate.isAfter(maxStartDate)) {
+        _loadMoreData();
+      }
+    }
+  }
+
+  /// 현재 보이는 첫 번째 날짜의 월 업데이트
+  void _updateVisibleMonth() {
+    if (!_scrollController.hasClients ||
+        _cachedDates == null ||
+        _cachedDates!.isEmpty) {
+      return;
+    }
+
+    final scrollPosition = _scrollController.position.pixels;
+    // 셀 너비 (20) + 간격 (6) = 26
+    const cellWidth = 26.0;
+
+    // 스크롤 위치를 기반으로 첫 번째 보이는 날짜 인덱스 계산
+    final firstVisibleIndex = (scrollPosition / cellWidth).floor();
+
+    if (firstVisibleIndex >= 0 && firstVisibleIndex < _cachedDates!.length) {
+      final firstVisibleDate = _cachedDates![firstVisibleIndex];
+      // 년도 2자리로 표시 (예: 25/1)
+      final year = firstVisibleDate.year % 100;
+      final monthYear = '$year/${firstVisibleDate.month}';
+
+      if (_visibleFirstMonthYear != monthYear) {
+        setState(() {
+          _visibleFirstMonthYear = monthYear;
+        });
+      }
+    }
+  }
+
+  /// 추가 데이터 로드
+  void _loadMoreData() {
+    if (_isLoadingMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    // 이전 날짜로 시작 날짜 확장
+    final newStartDate = _displayedStartDate.subtract(
+      const Duration(days: _loadMoreDays),
+    );
+
+    // 최대 표시 가능한 시작 날짜 가져오기
+    final maxStartDate = _getMaxStartDate();
+
+    // 최대 시작 날짜보다 이전으로 가지 않도록 제한
+    if (newStartDate.isBefore(maxStartDate)) {
+      _displayedStartDate = maxStartDate;
+    } else {
+      _displayedStartDate = newStartDate;
+    }
+
+    // 캐시 업데이트
+    _updateCache();
+
+    // 스크롤 위치 유지 (새로운 데이터가 왼쪽에 추가되므로)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients && mounted) {
+        // 스크롤 위치 조정은 필요 없음 (새 데이터가 왼쪽에 추가되므로)
+        setState(() {
+          _isLoadingMore = false;
+        });
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(SymptomCalendarHeatmap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 위젯이 업데이트될 때 데이터가 변경되었는지 확인
+    if (oldWidget.startDate != widget.startDate ||
+        oldWidget.endDate != widget.endDate ||
+        oldWidget.symptomData != widget.symptomData ||
+        oldWidget.periodDays != widget.periodDays ||
+        oldWidget.fertileWindowDays != widget.fertileWindowDays ||
+        oldWidget.isExample != widget.isExample ||
+        oldWidget.symptomCatalog != widget.symptomCatalog) {
+      // 전체 데이터 범위가 변경되면 초기화 (최근 60일부터)
+      final endDate = DateTime(
+        widget.endDate.year,
+        widget.endDate.month,
+        widget.endDate.day,
+      );
+
+      // 최초 화면 진입 시에는 항상 최근 60일만 표시
+      _displayedStartDate = endDate.subtract(
+        const Duration(days: _initialDays - 1),
+      );
+
+      // 실제 시작 날짜보다 이전으로 가지 않도록 제한
+      final maxStartDate = _getMaxStartDate();
+      if (_displayedStartDate.isBefore(maxStartDate)) {
+        _displayedStartDate = maxStartDate;
+      }
+
+      _updateCache();
+    }
+  }
+
+  /// 캐시 업데이트
+  void _updateCache() {
+    // 날짜 리스트 생성 (표시 중인 시작 날짜부터 종료 날짜까지)
+    final dates = <DateTime>[];
+    var current = DateTime(
+      _displayedStartDate.year,
+      _displayedStartDate.month,
+      _displayedStartDate.day,
+    );
+    final end = DateTime(
+      widget.endDate.year,
+      widget.endDate.month,
+      widget.endDate.day,
+    );
+
+    while (!current.isAfter(end)) {
+      dates.add(current);
+      current = current.add(const Duration(days: 1));
+    }
+
+    _cachedDates = dates;
+    _cachedLabelRows = _generateLabelRows();
+    _cachedSymptomData = widget.symptomData;
+    _cachedPeriodDays = widget.periodDays;
+    _cachedFertileWindowDays = widget.fertileWindowDays;
+    _cachedIsExample = widget.isExample;
   }
 
   @override
@@ -463,35 +675,22 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
   @override
   Widget build(BuildContext context) {
-    // 날짜 리스트 생성 (startDate부터 endDate까지)
-    final dates = <DateTime>[];
-    var current = DateTime(
-      widget.startDate.year,
-      widget.startDate.month,
-      widget.startDate.day,
-    );
-    final end = DateTime(
-      widget.endDate.year,
-      widget.endDate.month,
-      widget.endDate.day,
-    );
+    // 캐시된 데이터 사용
+    final dates = _cachedDates ?? [];
+    final labelRows = _cachedLabelRows ?? [];
 
-    while (!current.isAfter(end)) {
-      dates.add(current);
-      current = current.add(const Duration(days: 1));
-    }
-
-    // 레이블 행 리스트
-    final labelRows = _generateLabelRows();
-
-    // 빌드 완료 후 오른쪽 끝으로 스크롤
+    // 빌드 완료 후 오른쪽 끝으로 스크롤 및 월 업데이트
     if (!_hasScrolledToEnd) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients && !_hasScrolledToEnd) {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
           _hasScrolledToEnd = true;
+          _updateVisibleMonth();
         }
       });
+    } else {
+      // 이미 스크롤된 경우 현재 월 업데이트
+      _updateVisibleMonth();
     }
 
     return NotificationListener<ScrollNotification>(
@@ -509,8 +708,22 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 헤더 공간 (셀 높이 20 + 하단 간격 6 = 26)
-              const SizedBox(height: 26, width: 60),
+              // 월 표시 헤더
+              SizedBox(
+                height: 26,
+                width: 60,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _visibleFirstMonthYear ?? '',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 9,
+                      color: AppColors.textPrimary.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
               // 레이블들 (셀 높이 20 + 하단 간격 6 = 26)
               ...labelRows.map((labelRow) {
                 return SizedBox(
@@ -601,33 +814,42 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         final dateKey =
                             '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
                         final symptoms =
-                            widget.symptomData[dateKey] ?? <String>{};
+                            (_cachedSymptomData ??
+                                widget.symptomData)[dateKey] ??
+                            <String>{};
 
                         bool hasSymptom = false;
                         Color cellColor = AppColors.disabled;
 
                         // 생리일과 가임기는 별도 처리
+                        final periodDays =
+                            _cachedPeriodDays ?? widget.periodDays;
+                        final fertileWindowDays =
+                            _cachedFertileWindowDays ??
+                            widget.fertileWindowDays;
+                        final isExample = _cachedIsExample ?? widget.isExample;
+
                         if (labelRow.label == '생리일') {
-                          hasSymptom = widget.periodDays.any(
+                          hasSymptom = periodDays.any(
                             (d) =>
                                 d.year == date.year &&
                                 d.month == date.month &&
                                 d.day == date.day,
                           );
                           if (hasSymptom) {
-                            cellColor = widget.isExample
+                            cellColor = isExample
                                 ? AppColors.textDisabled.withValues(alpha: 0.3)
                                 : SymptomColors.period;
                           }
                         } else if (labelRow.label == '가임기') {
-                          hasSymptom = widget.fertileWindowDays.any(
+                          hasSymptom = fertileWindowDays.any(
                             (d) =>
                                 d.year == date.year &&
                                 d.month == date.month &&
                                 d.day == date.day,
                           );
                           if (hasSymptom) {
-                            cellColor = widget.isExample
+                            cellColor = isExample
                                 ? AppColors.textDisabled.withValues(alpha: 0.2)
                                 : SymptomColors.fertile;
                           }
@@ -642,7 +864,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                           );
                           if (hasGood) {
                             // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
-                            cellColor = widget.isExample
+                            cellColor = isExample
                                 ? AppColors.textDisabled.withValues(alpha: 0.3)
                                 : SymptomColors.goodSymptom;
                             hasSymptom = true;
@@ -665,7 +887,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                               } else {
                                 alpha = 1.0;
                               }
-                              cellColor = widget.isExample
+                              cellColor = isExample
                                   ? AppColors.textDisabled.withValues(
                                       alpha: alpha,
                                     )
@@ -703,79 +925,82 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         }
 
                         // 모든 셀에 테두리 추가
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (details) {
-                            // 간격 영역을 터치해도 툴팁 제거
-                            if (!hasSymptom) {
-                              _hideTooltip();
-                            }
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.only(right: 6, bottom: 6),
-                            child: Builder(
-                              builder: (cellContext) {
-                                return GestureDetector(
-                                  onTapDown: (details) {
-                                    if (hasSymptom) {
-                                      // 증상이 있는 셀: 툴팁 표시
-                                      // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
-                                      _hideTooltipOnly();
+                        return RepaintBoundary(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapDown: (details) {
+                              // 간격 영역을 터치해도 툴팁 제거
+                              if (!hasSymptom) {
+                                _hideTooltip();
+                              }
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.only(right: 6, bottom: 6),
+                              child: Builder(
+                                builder: (cellContext) {
+                                  return GestureDetector(
+                                    onTapDown: (details) {
+                                      if (hasSymptom) {
+                                        // 증상이 있는 셀: 툴팁 표시
+                                        // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
+                                        _hideTooltipOnly();
 
-                                      // 선택된 셀 업데이트
-                                      setState(() {
-                                        _selectedCellKey = cellKey;
-                                      });
+                                        // 선택된 셀 업데이트
+                                        setState(() {
+                                          _selectedCellKey = cellKey;
+                                        });
 
-                                      // 터치 위치를 전역 좌표로 변환
-                                      final RenderBox? box =
-                                          cellContext.findRenderObject()
-                                              as RenderBox?;
-                                      if (box != null) {
-                                        // 셀의 중심 위치 계산
-                                        final cellCenter = box.localToGlobal(
-                                          Offset(
-                                            box.size.width / 2,
-                                            box.size.height / 2,
-                                          ),
-                                        );
+                                        // 터치 위치를 전역 좌표로 변환
+                                        final RenderBox? box =
+                                            cellContext.findRenderObject()
+                                                as RenderBox?;
+                                        if (box != null) {
+                                          // 셀의 중심 위치 계산
+                                          final cellCenter = box.localToGlobal(
+                                            Offset(
+                                              box.size.width / 2,
+                                              box.size.height / 2,
+                                            ),
+                                          );
 
-                                        // 다음 프레임에서 툴팁 표시
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              if (mounted &&
-                                                  _selectedCellKey == cellKey) {
-                                                _showSymptomDialog(
-                                                  cellContext,
-                                                  date,
-                                                  symptoms,
-                                                  labelRow,
-                                                  cellCenter,
-                                                );
-                                              }
-                                            });
+                                          // 다음 프레임에서 툴팁 표시
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                if (mounted &&
+                                                    _selectedCellKey ==
+                                                        cellKey) {
+                                                  _showSymptomDialog(
+                                                    cellContext,
+                                                    date,
+                                                    symptoms,
+                                                    labelRow,
+                                                    cellCenter,
+                                                  );
+                                                }
+                                              });
+                                        }
+                                      } else {
+                                        // 증상이 없는 셀: 툴팁 제거 및 선택 해제
+                                        _hideTooltip();
                                       }
-                                    } else {
-                                      // 증상이 없는 셀: 툴팁 제거 및 선택 해제
-                                      _hideTooltip();
-                                    }
-                                  },
-                                  child: Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      color: cellColor,
-                                      borderRadius: BorderRadius.circular(
-                                        2,
-                                      ), // 약간 둥근 모서리
-                                      border: Border.all(
-                                        color: borderColor,
-                                        width: isSelected ? 1.5 : 0.5,
+                                    },
+                                    child: Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: cellColor,
+                                        borderRadius: BorderRadius.circular(
+                                          2,
+                                        ), // 약간 둥근 모서리
+                                        border: Border.all(
+                                          color: borderColor,
+                                          width: isSelected ? 1.5 : 0.5,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         );

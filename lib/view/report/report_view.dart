@@ -199,13 +199,35 @@ class ReportView extends StatelessWidget {
   }
 
   /// 실제 생리 주기 데이터를 기반으로 차트 데이터 생성
-  List<ChartLinePoint> _generateChartData(List<PeriodCycle> periodCycles) {
+  List<ChartLinePoint> _generateChartData(
+    List<PeriodCycle> periodCycles,
+    DateTime today,
+  ) {
     if (periodCycles.isEmpty) {
       return [];
     }
 
+    // 시작 날짜 계산: 오늘이 1월이면 작년 1월 1일부터, 그 외에는 1년 전 오늘부터
+    final startDate = today.month == 1
+        ? DateTime(today.year - 1, 1, 1)
+        : DateTime(today.year - 1, today.month, today.day);
+
+    // 최근 1년치 데이터만 필터링 (작년 1월 1일부터 또는 1년 전 오늘부터)
+    final recentCycles = periodCycles.where((cycle) {
+      final cycleStart = DateTime(
+        cycle.start.year,
+        cycle.start.month,
+        cycle.start.day,
+      );
+      return !cycleStart.isBefore(startDate);
+    }).toList();
+
+    if (recentCycles.isEmpty) {
+      return [];
+    }
+
     // 날짜순으로 정렬
-    final sorted = [...periodCycles]
+    final sorted = [...recentCycles]
       ..sort((a, b) => a.start.compareTo(b.start));
 
     final chartData = <ChartLinePoint>[];
@@ -384,7 +406,7 @@ class ReportView extends StatelessWidget {
             symptomSelections,
             vm.today,
           );
-          final chartData = _generateChartData(vm.periodCycles);
+          final chartData = _generateChartData(vm.periodCycles, vm.today);
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -586,10 +608,10 @@ class ReportView extends StatelessWidget {
                                       : _generateExampleFertileDays(vm.today),
                                   symptomCatalog: vm.symptomCatalog,
                                   startDate: DateTime(
-                                    vm.today.year,
+                                    vm.today.year - 1,
                                     vm.today.month,
                                     vm.today.day,
-                                  ).subtract(const Duration(days: 39)),
+                                  ),
                                   endDate: DateTime(
                                     vm.today.year,
                                     vm.today.month,
