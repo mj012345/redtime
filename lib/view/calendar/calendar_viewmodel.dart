@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/models/symptom_category.dart';
@@ -7,6 +8,11 @@ import 'package:red_time_app/services/calendar_service.dart';
 
 class CalendarViewModel extends ChangeNotifier {
   final String? userId; // 사용자 ID 저장 (Repository 타입 확인용)
+
+  // 디바운싱 타이머 (1.5초 지연)
+  Timer? _symptomSaveTimer;
+  Timer? _periodSaveTimer;
+  static const Duration _debounceDelay = Duration(milliseconds: 1500);
 
   CalendarViewModel({
     PeriodRepository? periodRepository,
@@ -20,6 +26,16 @@ class CalendarViewModel extends ChangeNotifier {
            : null {
     // 비동기 초기화를 지연시켜 앱 시작을 블로킹하지 않도록 함
     Future.microtask(() => _initialize());
+  }
+
+  @override
+  void dispose() {
+    // 디바운싱 대기 중인 저장 작업 처리
+    _symptomSaveTimer?.cancel();
+    _periodSaveTimer?.cancel();
+    _performSymptomSave();
+    _performPeriodSave();
+    super.dispose();
   }
 
   /// 비동기 초기화 (Firebase Repository 사용 시)
@@ -418,10 +434,25 @@ class CalendarViewModel extends ChangeNotifier {
     expectedFertileWindowDays = derived.expectedFertileWindowDays;
     expectedOvulationDay = derived.expectedOvulationDay;
 
-    // 생리 주기 변경 시 Firebase에 저장
-    _periodRepo.save(periodCycles);
+    // 생리 주기 변경 시 Firebase에 저장 (디바운싱 적용)
+    _persistPeriods();
 
     notifyListeners();
+  }
+
+  /// 주기 저장 디바운싱 (1.5초 지연)
+  void _persistPeriods() {
+    _periodSaveTimer?.cancel();
+    _periodSaveTimer = Timer(_debounceDelay, () {
+      _performPeriodSave();
+    });
+  }
+
+  /// 실제 주기 저장 수행
+  void _performPeriodSave() {
+    _periodSaveTimer?.cancel();
+    _periodSaveTimer = null;
+    _periodRepo.save(periodCycles);
   }
 
   // 검색 유틸
@@ -511,7 +542,18 @@ class CalendarViewModel extends ChangeNotifier {
     return false;
   }
 
+  /// 증상 저장 디바운싱 (1.5초 지연)
   void _persistSymptoms() {
+    _symptomSaveTimer?.cancel();
+    _symptomSaveTimer = Timer(_debounceDelay, () {
+      _performSymptomSave();
+    });
+  }
+
+  /// 실제 증상 저장 수행
+  void _performSymptomSave() {
+    _symptomSaveTimer?.cancel();
+    _symptomSaveTimer = null;
     _symptomRepo.saveSelections(_symptomSelections);
   }
 }
