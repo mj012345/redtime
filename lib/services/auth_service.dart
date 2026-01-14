@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:red_time_app/models/user_model.dart';
 import 'package:red_time_app/services/firebase_service.dart';
+import 'package:red_time_app/services/sign_in_result.dart';
 
 /// 인증 서비스: 구글 로그인 및 사용자 정보 관리
 class AuthService {
@@ -29,13 +30,8 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'email',
-      'profile',
-      // 참고: 생년월일, 성별, 전화번호는 Google People API가 필요하며
-      // 별도의 API 활성화 및 OAuth 동의 화면 설정이 필요합니다.
-      // 현재는 기본 프로필 정보(이메일, 이름, 프로필 사진)만 수집합니다.
-      // 'https://www.googleapis.com/auth/user.birthday.read',
-      // 'https://www.googleapis.com/auth/user.gender.read',
-      // 'https://www.googleapis.com/auth/user.phonenumbers.read',
+      // 참고: 이메일만 수집하며, 이름, 프로필 사진, 생년월일, 성별, 전화번호는 수집하지 않습니다.
+      // 'profile' scope를 제거하여 이름과 프로필 사진 권한 요청을 방지합니다.
     ],
     // serverClientId를 명시하지 않으면 google-services.json에서 자동으로 찾습니다
     // ApiException: 10 발생 시 Firebase Console에서 SHA-1 인증서 지문 등록 확인 필요
@@ -52,8 +48,8 @@ class AuthService {
     return _auth!.authStateChanges();
   }
 
-  /// 구글 로그인 및 Firestore에 사용자 정보 저장
-  Future<UserModel?> signInWithGoogle() async {
+  /// 구글 로그인 및 신규/기존 회원 확인
+  Future<SignInResult?> signInWithGoogle() async {
     try {
       // Firebase 초기화 확인
       final isInitialized = FirebaseService.checkInitialized();
@@ -102,13 +98,13 @@ class AuthService {
         return null;
       }
 
-      // 3. 인증 정보 가져오기
+      // 4. 인증 정보 가져오기
       final googleAuth = await googleUser.authentication;
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
         throw Exception('Google 인증 토큰이 없습니다.');
       }
 
-      // 4. Firebase에 로그인
+      // 5. Firebase에 로그인
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -128,50 +124,28 @@ class AuthService {
       // 7. 기존 회원이면 기존 정보로 로그인, 신규 회원이면 새로 생성
       final userModel = existingUserModel != null
           ? UserModel(
-              // 기존 회원: 기존 정보 유지, 프로필 정보만 업데이트
+              // 기존 회원: 기존 정보 유지 (이메일만 업데이트)
               uid: user.uid,
               email: user.email ?? '',
-              displayName: user.displayName ?? existingUserModel.displayName,
-              photoURL: user.photoURL ?? existingUserModel.photoURL,
-              birthDate: existingUserModel.birthDate,
-              gender: existingUserModel.gender,
-              phoneNumber: existingUserModel.phoneNumber,
+              displayName: null,
+              photoURL: null,
               createdAt: existingUserModel.createdAt, // 기존 생성일 유지
               updatedAt: DateTime.now(),
             )
           : UserModel(
-              // 신규 회원: 새로 생성
+              // 신규 회원: 이메일만 수집
               uid: user.uid,
               email: user.email ?? '',
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              birthDate: null,
-              gender: null,
-              phoneNumber: null,
+              displayName: null,
+              photoURL: null,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             );
 
-      // 8. Firestore에 저장 (신규 회원은 반드시 성공해야 함)
-      try {
-        await saveUserToFirestore(userModel);
-      } catch (e) {
-        // 신규 회원인데 저장 실패하면 Firebase Auth에서 로그아웃하고 예외 던지기
-        if (isNewUser) {
-          debugPrint('신규 회원 Firestore 저장 실패: $e');
-          try {
-            await _auth!.signOut();
-          } catch (_) {
-            // 로그아웃 실패는 무시
-          }
-          throw Exception('회원가입에 실패했습니다. 다시 시도해주세요.');
-        } else {
-          // 기존 회원은 업데이트 실패해도 로그인 허용 (프로필 정보만 업데이트 안 됨)
-          debugPrint('기존 회원 Firestore 업데이트 실패: $e');
-        }
-      }
+      // 8. 약관 동의 전에는 Firestore에 저장하지 않음 (약관 동의 후 저장)
+      // 신규/기존 회원 모두 약관 동의 화면에서 약관 동의 후 저장
 
-      return userModel;
+      return SignInResult(userModel: userModel, isNewUser: isNewUser);
     } catch (e) {
       rethrow;
     }
@@ -190,12 +164,10 @@ class AuthService {
       if (docSnapshot.exists) {
         // 기존 사용자: updatedAt만 업데이트
         await userRef.update({
-          'displayName': userModel.displayName,
-          'photoURL': userModel.photoURL,
           'updatedAt': userModel.updatedAt.toIso8601String(),
         });
       } else {
-        // 신규 사용자: 전체 정보 저장
+        // 신규 사용자: 전체 정보 저장 (약관 버전 포함)
         await userRef.set(userModel.toMap());
       }
     } catch (e) {
@@ -313,15 +285,15 @@ class AuthService {
 
       // Firestore에 사용자 정보가 없어도 Firebase Auth 정보로 계정 삭제 진행
       final userData = userModel != null
-          ? userModel.toMap()
+          ? {
+              'uid': userModel.uid,
+              'email': userModel.email,
+              'createdAt': userModel.createdAt.toIso8601String(),
+              'updatedAt': userModel.updatedAt.toIso8601String(),
+            }
           : {
               'uid': userId,
               'email': user.email ?? '',
-              'displayName': user.displayName,
-              'photoURL': user.photoURL,
-              'birthDate': null,
-              'gender': null,
-              'phoneNumber': null,
               'createdAt': DateTime.now().toIso8601String(),
               'updatedAt': DateTime.now().toIso8601String(),
             };

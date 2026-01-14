@@ -14,6 +14,8 @@ import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/auth/login_view.dart';
+import 'package:red_time_app/view/auth/terms_agreement_view.dart';
+import 'package:red_time_app/view/terms/terms_page_view.dart';
 import 'package:red_time_app/view/calendar/calendar_view.dart';
 import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
 import 'package:red_time_app/view/my/my_view.dart';
@@ -122,6 +124,16 @@ class MyApp extends StatelessWidget {
           switch (settings.name) {
             case '/login':
               return noTransition(const LoginView());
+            case '/terms':
+              return noTransition(const TermsAgreementView());
+            case '/terms-page':
+            case '/privacy-page':
+              final args = settings.arguments as Map<String, dynamic>?;
+              final type = args?['type'] as TermsPageType?;
+              if (type != null) {
+                return noTransition(TermsPageView(type: type));
+              }
+              return noTransition(const TermsAgreementView());
             case '/report':
               return noTransition(const ReportView());
             case '/my':
@@ -254,6 +266,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
 
           if (snapshot.hasData && snapshot.data != null) {
+            // 로그인된 사용자는 달력 화면으로 (약관 동의는 로그인 후 처리)
             return const FigmaCalendarPage();
           } else {
             return const LoginView();

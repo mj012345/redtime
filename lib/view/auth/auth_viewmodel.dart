@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:red_time_app/models/user_model.dart';
 import 'package:red_time_app/services/auth_service.dart';
@@ -11,11 +12,13 @@ class AuthViewModel extends ChangeNotifier {
   UserModel? _userModel;
   bool _isLoading = false;
   String? _errorMessage;
+  bool? _isNewUser; // 신규/기존 회원 구분 (null: 미확인, true: 신규, false: 기존)
 
   User? get currentUser => _currentUser;
   UserModel? get userModel => _userModel;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool? get isNewUser => _isNewUser;
   bool get isAuthenticated => _currentUser != null;
 
   AuthViewModel() {
@@ -80,36 +83,24 @@ class AuthViewModel extends ChangeNotifier {
         if (userModel != null) {
           _userModel = userModel;
         } else {
-          // 신규 사용자: 기본 정보로 생성
-          final newUserModel = UserModel(
+          // 신규 사용자: 약관 동의 전이므로 Firestore에 저장하지 않음
+          // 로컬 UserModel만 생성 (약관 동의 후 저장됨)
+          _userModel = UserModel(
             uid: updatedUser.uid,
             email: updatedUser.email ?? '',
-            displayName: updatedUser.displayName,
-            photoURL: updatedUser.photoURL,
-            birthDate: null,
-            gender: null,
-            phoneNumber: null,
+            displayName: null,
+            photoURL: null,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
-          // Firestore 저장 시도 (실패해도 기본 정보 유지)
-          try {
-            await _authService.saveUserToFirestore(newUserModel);
-          } catch (_) {
-            // 저장 실패 무시
-          }
-          _userModel = newUserModel;
         }
       } catch (_) {
-        // Firestore 조회 실패 시 기본 정보만 사용
+        // Firestore 조회 실패 시 이메일만 사용 (Firestore 저장하지 않음)
         _userModel = UserModel(
           uid: updatedUser.uid,
           email: updatedUser.email ?? '',
-          displayName: updatedUser.displayName,
-          photoURL: updatedUser.photoURL,
-          birthDate: null,
-          gender: null,
-          phoneNumber: null,
+          displayName: null,
+          photoURL: null,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -134,40 +125,148 @@ class AuthViewModel extends ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
+      _isNewUser = null;
       notifyListeners();
 
-      final userModel = await _authService.signInWithGoogle();
-      if (userModel != null) {
-        _userModel = userModel;
+      final result = await _authService.signInWithGoogle();
+      if (result != null) {
+        _userModel = result.userModel;
         _currentUser = _authService.currentUser;
+        _isNewUser = result.isNewUser;
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
         _isLoading = false;
+        _isNewUser = null;
         notifyListeners();
         return false;
       }
-    } catch (e) {
-      debugPrint('로그인 에러: $e');
+    } on FirebaseAuthException catch (e) {
+      // Firebase Auth 에러 타입 활용
+      String userMessage;
+      String debugMessage;
 
+      switch (e.code) {
+        case 'network-request-failed':
+          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+          debugMessage = '❌ Firebase Auth 네트워크 오류 [${e.code}]: ${e.message}';
+          break;
+        case 'user-disabled':
+          userMessage = '사용할 수 없는 계정입니다.';
+          debugMessage = '❌ Firebase Auth 계정 비활성화 [${e.code}]: ${e.message}';
+          break;
+        case 'invalid-credential':
+          userMessage = '인증 정보가 올바르지 않습니다.';
+          debugMessage = '❌ Firebase Auth 잘못된 인증 정보 [${e.code}]: ${e.message}';
+          break;
+        case 'operation-not-allowed':
+          userMessage = 'Google 로그인이 허용되지 않았습니다.';
+          debugMessage = '❌ Firebase Auth 운영 미허용 [${e.code}]: ${e.message}';
+          break;
+        case 'user-not-found':
+          userMessage = '사용자 계정을 찾을 수 없습니다.';
+          debugMessage = '❌ Firebase Auth 사용자 없음 [${e.code}]: ${e.message}';
+          break;
+        case 'wrong-password':
+          userMessage = '인증 정보가 올바르지 않습니다.';
+          debugMessage = '❌ Firebase Auth 잘못된 비밀번호 [${e.code}]: ${e.message}';
+          break;
+        default:
+          userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
+          debugMessage = '❌ Firebase Auth 알 수 없는 에러 [${e.code}]: ${e.message}';
+      }
+
+      // 개발자용 디버그 콘솔 로그
+      debugPrint('=== Firebase Auth 에러 ===');
+      debugPrint(debugMessage);
+      debugPrint('에러 코드: ${e.code}');
+      debugPrint('에러 메시지: ${e.message}');
+      debugPrint('에러 스택: ${StackTrace.current}');
+      debugPrint('===================');
+
+      _errorMessage = userMessage;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on PlatformException catch (e) {
+      // Platform 에러 (Google Sign-In 등)
+      String userMessage;
+      String debugMessage;
+
+      if (e.code == 'sign_in_failed') {
+        if (e.message?.contains('ApiException: 10') == true) {
+          userMessage =
+              'Google 로그인 설정 오류가 발생했습니다.\nFirebase Console에서 SHA-1 지문을 확인해주세요.';
+          debugMessage =
+              '❌ Google Sign-In 설정 오류 [${e.code}]: ApiException: 10 - ${e.message}';
+        } else if (e.message?.toLowerCase().contains('network') == true ||
+            e.message?.toLowerCase().contains('connection') == true) {
+          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+          debugMessage = '❌ Google Sign-In 네트워크 오류 [${e.code}]: ${e.message}';
+        } else {
+          userMessage = 'Google 로그인에 실패했습니다.';
+          debugMessage = '❌ Google Sign-In 실패 [${e.code}]: ${e.message}';
+        }
+      } else {
+        userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
+        debugMessage = '❌ Platform 알 수 없는 에러 [${e.code}]: ${e.message}';
+      }
+
+      // 개발자용 디버그 콘솔 로그
+      debugPrint('=== Platform 에러 ===');
+      debugPrint(debugMessage);
+      debugPrint('에러 코드: ${e.code}');
+      debugPrint('에러 메시지: ${e.message}');
+      debugPrint('에러 세부사항: ${e.details}');
+      debugPrint('에러 스택: ${StackTrace.current}');
+      debugPrint('===================');
+
+      _errorMessage = userMessage;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      // 기타 예외 (일반 Exception 등)
       final errorString = e.toString().toLowerCase();
-      String errorMsg = '로그인 실패';
+      String? userMessage;
+      String debugMessage;
 
       if (errorString.contains('canceled') ||
           errorString.contains('cancelled')) {
-        _errorMessage = null;
+        // 사용자 취소는 에러 메시지 표시하지 않음
+        userMessage = null;
+        debugMessage = '✅ 사용자 로그인 취소: $e';
+      } else if (errorString.contains('회원가입') ||
+          errorString.contains('signup') ||
+          errorString.contains('sign up')) {
+        // 회원가입 에러
+        if (errorString.contains('network') ||
+            errorString.contains('connection')) {
+          userMessage = '네트워크 오류로 회원가입에 실패했습니다. 인터넷 연결을 확인해주세요.';
+          debugMessage = '❌ 회원가입 네트워크 오류 [${e.runtimeType}]: $e';
+        } else {
+          userMessage = '회원가입에 실패했습니다. 다시 시도해주세요.';
+          debugMessage = '❌ 회원가입 실패 [${e.runtimeType}]: $e';
+        }
       } else if (errorString.contains('network') ||
           errorString.contains('connection')) {
-        errorMsg = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-      } else if (errorString.contains('apiexception: 10')) {
-        errorMsg =
-            'Google 로그인 설정 오류가 발생했습니다.\nFirebase Console에서 SHA-1 지문을 확인해주세요.';
+        userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+        debugMessage = '❌ 네트워크 오류 [${e.runtimeType}]: $e';
       } else {
-        errorMsg = '로그인에 실패했습니다. 다시 시도해주세요.';
+        userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
+        debugMessage = '❌ 알 수 없는 에러 [${e.runtimeType}]: $e';
       }
 
-      _errorMessage = errorMsg;
+      // 개발자용 디버그 콘솔 로그
+      debugPrint('=== 기타 에러 ===');
+      debugPrint(debugMessage);
+      debugPrint('에러 타입: ${e.runtimeType}');
+      debugPrint('에러 메시지: $e');
+      debugPrint('에러 스택: ${StackTrace.current}');
+      debugPrint('===================');
+
+      _errorMessage = userMessage;
       _isLoading = false;
       notifyListeners();
       return false;

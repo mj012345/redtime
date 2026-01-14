@@ -7,6 +7,8 @@ class UserModel {
   final String? birthDate; // yyyy-MM-dd 형식
   final String? gender; // 'male', 'female', 'other', null
   final String? phoneNumber;
+  final String? termsVersion; // 이용약관 동의 버전
+  final String? privacyVersion; // 개인정보처리방침 동의 버전
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -18,6 +20,8 @@ class UserModel {
     this.birthDate,
     this.gender,
     this.phoneNumber,
+    this.termsVersion,
+    this.privacyVersion,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +36,8 @@ class UserModel {
       'birthDate': birthDate,
       'gender': gender,
       'phoneNumber': phoneNumber,
+      'termsVersion': termsVersion,
+      'privacyVersion': privacyVersion,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -47,6 +53,8 @@ class UserModel {
       birthDate: map['birthDate'] as String?,
       gender: map['gender'] as String?,
       phoneNumber: map['phoneNumber'] as String?,
+      termsVersion: map['termsVersion'] as String?,
+      privacyVersion: map['privacyVersion'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -61,6 +69,8 @@ class UserModel {
     String? birthDate,
     String? gender,
     String? phoneNumber,
+    String? termsVersion,
+    String? privacyVersion,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -72,6 +82,8 @@ class UserModel {
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      termsVersion: termsVersion ?? this.termsVersion,
+      privacyVersion: privacyVersion ?? this.privacyVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
