@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,7 @@ import 'package:red_time_app/services/auth_service.dart';
 /// 인증 상태 관리 뷰모델
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  StreamSubscription<User?>? _authStateSubscription;
 
   User? _currentUser;
   UserModel? _userModel;
@@ -23,7 +25,7 @@ class AuthViewModel extends ChangeNotifier {
 
   AuthViewModel() {
     // 로그인 상태 변화 감지 (먼저 설정)
-    _authService.authStateChanges.listen((User? user) {
+    _authStateSubscription = _authService.authStateChanges.listen((User? user) {
       if (user != null) {
         _currentUser = user;
         _validateAndLoadUser(user)
@@ -43,6 +45,13 @@ class AuthViewModel extends ChangeNotifier {
 
     // 앱 시작 시 현재 사용자 유효성 검증 (비동기로 실행)
     _validateCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    _authStateSubscription = null;
+    super.dispose();
   }
 
   /// 앱 시작 시 현재 사용자 유효성 검증

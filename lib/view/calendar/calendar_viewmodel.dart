@@ -10,7 +10,7 @@ class CalendarViewModel extends ChangeNotifier {
   final String? userId; // 사용자 ID 저장 (Repository 타입 확인용)
 
   // 디바운싱 타이머 (1.5초 지연)
-  Timer? _symptomSaveTimer;
+  Map<String, Timer> _symptomSaveTimers = {}; // 날짜별 증상 저장 타이머
   Timer? _periodSaveTimer;
   static const Duration _debounceDelay = Duration(milliseconds: 1500);
 
@@ -31,9 +31,17 @@ class CalendarViewModel extends ChangeNotifier {
   @override
   void dispose() {
     // 디바운싱 대기 중인 저장 작업 처리
-    _symptomSaveTimer?.cancel();
+    for (final timer in _symptomSaveTimers.values) {
+      timer.cancel();
+    }
+    _symptomSaveTimers.clear();
+    // 대기 중인 모든 증상 저장 즉시 수행
+    for (final entry in _symptomSelections.entries) {
+      if (entry.value.isNotEmpty) {
+        _symptomRepo.saveSymptomForDate(entry.key, entry.value);
+      }
+    }
     _periodSaveTimer?.cancel();
-    _performSymptomSave();
     _performPeriodSave();
     super.dispose();
   }
@@ -44,33 +52,52 @@ class CalendarViewModel extends ChangeNotifier {
   }
 
   /// 데이터 새로고침 (리프레시용)
-  Future<void> refresh() async {
+  Future<void> refresh({bool forceRefresh = false}) async {
     try {
+      debugPrint('🔄 [데이터 새로고침 시작] forceRefresh: $forceRefresh');
+
       // 리프레시 시 기존 데이터를 먼저 초기화 (Firebase에서 빈 데이터가 올 수 있으므로)
       Map<String, Set<String>> newSymptomSelections = {};
       List<PeriodCycle> newPeriodCycles = [];
 
-      // Firebase Repository인 경우 서버에서 강제로 최신 데이터 가져오기
+      // Firebase Repository인 경우 캐시 우선 사용 (기본값) 또는 서버에서 강제 읽기
       Map<String, String> newMemos = {};
       if (_symptomRepo is FirebaseSymptomRepository) {
         final repo = _symptomRepo;
-        newSymptomSelections = await repo.loadAsync(forceRefresh: true);
-        newMemos = await repo.loadMemosAsync(forceRefresh: true);
+        // 통합 읽기: 증상과 메모를 한 번에 읽기 (중복 읽기 제거)
+        final result = await repo.loadAllAsync(forceRefresh: forceRefresh);
+        newSymptomSelections = result.symptoms;
+        newMemos = result.memos;
       } else {
         newSymptomSelections = _symptomRepo.loadSelections();
         newMemos = _symptomRepo.loadMemos();
       }
 
       if (_periodRepo is FirebasePeriodRepository) {
-        newPeriodCycles = await (_periodRepo).loadAsync(forceRefresh: true);
+        newPeriodCycles = await (_periodRepo).loadAsync(
+          forceRefresh: forceRefresh,
+        );
       } else {
         newPeriodCycles = _periodRepo.load();
       }
+
+      debugPrint('✅ [데이터 새로고침 완료]');
 
       // 가져온 데이터로 덮어쓰기 (빈 데이터여도)
       _symptomSelections = newSymptomSelections;
       _memos = newMemos;
       periodCycles = newPeriodCycles;
+      // 로드한 상태를 저장 상태로 업데이트 (깊은 복사)
+      _savedPeriodCycles = newPeriodCycles
+          .map(
+            (c) => PeriodCycle(
+              DateTime(c.start.year, c.start.month, c.start.day),
+              c.end != null
+                  ? DateTime(c.end!.year, c.end!.month, c.end!.day)
+                  : null,
+            ),
+          )
+          .toList();
 
       _recomputeSymptomRecordDays();
       _recomputePeriodDays();
@@ -82,6 +109,7 @@ class CalendarViewModel extends ChangeNotifier {
       _symptomSelections = {};
       _memos = {};
       periodCycles = [];
+      _savedPeriodCycles = [];
       _recomputeSymptomRecordDays();
       _recomputePeriodDays();
       _isInitialized = true;
@@ -98,6 +126,7 @@ class CalendarViewModel extends ChangeNotifier {
   // 주기 관련 상태
   List<DateTime> periodDays = [];
   List<PeriodCycle> periodCycles = [];
+  List<PeriodCycle> _savedPeriodCycles = []; // 마지막 저장된/로드된 상태 (메모리 추적용)
   int? activeCycleIndex;
 
   // 가임기/배란/예상값
@@ -234,9 +263,26 @@ class CalendarViewModel extends ChangeNotifier {
       _symptomSelections[key] = current;
     }
 
+    // 증상 저장/삭제 (디바운싱 적용)
+    _persistSymptomForDate(key, current);
+
     _recomputeSymptomRecordDays();
-    _persistSymptoms();
     notifyListeners();
+  }
+
+  /// 증상 저장 디바운싱 (개별 날짜 단위)
+  void _persistSymptomForDate(String dateKey, Set<String> symptoms) {
+    _symptomSaveTimers[dateKey]?.cancel();
+    _symptomSaveTimers[dateKey] = Timer(_debounceDelay, () {
+      _performSymptomSaveForDate(dateKey, symptoms);
+    });
+  }
+
+  /// 실제 증상 저장 수행 (개별 날짜)
+  void _performSymptomSaveForDate(String dateKey, Set<String> symptoms) {
+    _symptomSaveTimers[dateKey]?.cancel();
+    _symptomSaveTimers.remove(dateKey);
+    _symptomRepo.saveSymptomForDate(dateKey, symptoms);
   }
 
   // 메모 관련 메서드
@@ -452,7 +498,36 @@ class CalendarViewModel extends ChangeNotifier {
   void _performPeriodSave() {
     _periodSaveTimer?.cancel();
     _periodSaveTimer = null;
-    _periodRepo.save(periodCycles);
+
+    // 이전 상태와 비교하여 삭제할 시작일 계산
+    final savedStartKeys = <String>{};
+    for (final cycle in _savedPeriodCycles) {
+      savedStartKeys.add(_dateKey(cycle.start));
+    }
+
+    final currentStartKeys = <String>{};
+    for (final cycle in periodCycles) {
+      currentStartKeys.add(_dateKey(cycle.start));
+    }
+
+    // 삭제할 시작일: 이전에 있었지만 현재는 없는 것
+    final deleteStartDates = savedStartKeys
+        .where((key) => !currentStartKeys.contains(key))
+        .toSet();
+
+    _periodRepo.save(periodCycles, deleteStartDates: deleteStartDates);
+
+    // 저장 완료 후 현재 상태를 저장 상태로 업데이트
+    _savedPeriodCycles = periodCycles
+        .map(
+          (c) => PeriodCycle(
+            DateTime(c.start.year, c.start.month, c.start.day),
+            c.end != null
+                ? DateTime(c.end!.year, c.end!.month, c.end!.day)
+                : null,
+          ),
+        )
+        .toList();
   }
 
   // 검색 유틸
@@ -540,20 +615,5 @@ class CalendarViewModel extends ChangeNotifier {
       if (_sameDay(realEnd, selectedDay!)) return true;
     }
     return false;
-  }
-
-  /// 증상 저장 디바운싱 (1.5초 지연)
-  void _persistSymptoms() {
-    _symptomSaveTimer?.cancel();
-    _symptomSaveTimer = Timer(_debounceDelay, () {
-      _performSymptomSave();
-    });
-  }
-
-  /// 실제 증상 저장 수행
-  void _performSymptomSave() {
-    _symptomSaveTimer?.cancel();
-    _symptomSaveTimer = null;
-    _symptomRepo.saveSelections(_symptomSelections);
   }
 }
