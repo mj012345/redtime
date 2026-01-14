@@ -14,6 +14,7 @@ import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/auth/login_view.dart';
+import 'package:red_time_app/view/auth/signup_complete_view.dart';
 import 'package:red_time_app/view/auth/terms_agreement_view.dart';
 import 'package:red_time_app/view/terms/terms_page_view.dart';
 import 'package:red_time_app/view/calendar/calendar_view.dart';
@@ -126,6 +127,8 @@ class MyApp extends StatelessWidget {
               return noTransition(const LoginView());
             case '/terms':
               return noTransition(const TermsAgreementView());
+            case '/signup-complete':
+              return noTransition(const SignupCompleteView());
             case '/terms-page':
             case '/privacy-page':
               final args = settings.arguments as Map<String, dynamic>?;

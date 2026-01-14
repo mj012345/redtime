@@ -168,10 +168,6 @@ class AuthViewModel extends ChangeNotifier {
           userMessage = '사용자 계정을 찾을 수 없습니다.';
           debugMessage = '❌ Firebase Auth 사용자 없음 [${e.code}]: ${e.message}';
           break;
-        case 'wrong-password':
-          userMessage = '인증 정보가 올바르지 않습니다.';
-          debugMessage = '❌ Firebase Auth 잘못된 비밀번호 [${e.code}]: ${e.message}';
-          break;
         default:
           userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
           debugMessage = '❌ Firebase Auth 알 수 없는 에러 [${e.code}]: ${e.message}';
@@ -237,18 +233,6 @@ class AuthViewModel extends ChangeNotifier {
         // 사용자 취소는 에러 메시지 표시하지 않음
         userMessage = null;
         debugMessage = '✅ 사용자 로그인 취소: $e';
-      } else if (errorString.contains('회원가입') ||
-          errorString.contains('signup') ||
-          errorString.contains('sign up')) {
-        // 회원가입 에러
-        if (errorString.contains('network') ||
-            errorString.contains('connection')) {
-          userMessage = '네트워크 오류로 회원가입에 실패했습니다. 인터넷 연결을 확인해주세요.';
-          debugMessage = '❌ 회원가입 네트워크 오류 [${e.runtimeType}]: $e';
-        } else {
-          userMessage = '회원가입에 실패했습니다. 다시 시도해주세요.';
-          debugMessage = '❌ 회원가입 실패 [${e.runtimeType}]: $e';
-        }
       } else if (errorString.contains('network') ||
           errorString.contains('connection')) {
         userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';

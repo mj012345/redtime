@@ -121,26 +121,18 @@ class AuthService {
       final existingUserModel = await getUserFromFirestore(user.uid);
       final isNewUser = existingUserModel == null;
 
-      // 7. 기존 회원이면 기존 정보로 로그인, 신규 회원이면 새로 생성
-      final userModel = existingUserModel != null
-          ? UserModel(
-              // 기존 회원: 기존 정보 유지 (이메일만 업데이트)
-              uid: user.uid,
-              email: user.email ?? '',
-              displayName: null,
-              photoURL: null,
-              createdAt: existingUserModel.createdAt, // 기존 생성일 유지
-              updatedAt: DateTime.now(),
-            )
-          : UserModel(
-              // 신규 회원: 이메일만 수집
-              uid: user.uid,
-              email: user.email ?? '',
-              displayName: null,
-              photoURL: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
+      // 7. 기존 회원이면 기존 정보 사용, 신규 회원이면 새로 생성
+      final userModel =
+          existingUserModel ??
+          UserModel(
+            // 신규 회원: 이메일만 수집
+            uid: user.uid,
+            email: user.email ?? '',
+            displayName: null,
+            photoURL: null,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
 
       // 8. 약관 동의 전에는 Firestore에 저장하지 않음 (약관 동의 후 저장)
       // 신규/기존 회원 모두 약관 동의 화면에서 약관 동의 후 저장
@@ -151,7 +143,7 @@ class AuthService {
     }
   }
 
-  /// Firestore에 사용자 정보 저장 (없으면 생성, 있으면 업데이트)
+  /// Firestore에 사용자 정보 저장 (신규 회원만 저장)
   Future<void> saveUserToFirestore(UserModel userModel) async {
     if (_firestore == null) {
       throw Exception('Firestore가 초기화되지 않았습니다.');
@@ -159,17 +151,8 @@ class AuthService {
 
     try {
       final userRef = _firestore!.collection('users').doc(userModel.uid);
-
-      final docSnapshot = await userRef.get();
-      if (docSnapshot.exists) {
-        // 기존 사용자: updatedAt만 업데이트
-        await userRef.update({
-          'updatedAt': userModel.updatedAt.toIso8601String(),
-        });
-      } else {
-        // 신규 사용자: 전체 정보 저장 (약관 버전 포함)
-        await userRef.set(userModel.toMap());
-      }
+      // 신규 사용자: 전체 정보 저장 (약관 버전 포함)
+      await userRef.set(userModel.toMap());
     } catch (e) {
       debugPrint('Firestore 저장 실패: $e');
       rethrow;
