@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_colors.dart';
@@ -36,10 +37,15 @@ class MyView extends StatelessWidget {
     );
 
     if (shouldSignOut == true && context.mounted) {
+      debugPrint('🚪 [MyView] 로그아웃 시작');
       await authViewModel.signOut();
+
+      // 로그아웃 완료 후 잠시 대기하여 완전히 로그아웃되었는지 확인
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // 로그아웃 완료 후 로그인 페이지로 이동
       if (context.mounted) {
+        debugPrint('🚪 [MyView] 로그인 페이지로 이동');
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
@@ -78,28 +84,58 @@ class MyView extends StatelessWidget {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (dialogContext) =>
+            const Center(child: CircularProgressIndicator()),
       );
 
-      final success = await authViewModel.deleteAccount();
+      try {
+        final success = await authViewModel.deleteAccount();
 
-      if (context.mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        // 로딩 다이얼로그 닫기 (context.mounted 확인)
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
 
         if (success) {
           // 계정 삭제 성공 - 로그인 페이지로 이동
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
+          // context.mounted 확인 후 화면 이동
+          if (context.mounted) {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pushNamedAndRemoveUntil('/login', (route) => false);
+          }
         } else {
           // 계정 삭제 실패 - 에러 메시지 표시
+          // context.mounted 확인 후 메시지 표시
+          if (context.mounted) {
+            final errorMessage = authViewModel.errorMessage ?? '계정 삭제에 실패했습니다.';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // 예외 발생 시에도 로딩 다이얼로그 닫기
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+
+          // 에러 메시지 표시
+          final errorMessage =
+              authViewModel.errorMessage ?? '계정 삭제 중 오류가 발생했습니다.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(authViewModel.errorMessage ?? '계정 삭제에 실패했습니다.'),
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
+        debugPrint('❌ [MyView] 계정 삭제 중 예외 발생: $e');
       }
     }
   }
@@ -117,131 +153,131 @@ class MyView extends StatelessWidget {
         builder: (context, constraints) {
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Consumer<AuthViewModel>(
-                  builder: (context, authViewModel, _) {
-                    final userModel = authViewModel.userModel;
-                    final displayName = userModel?.displayName ?? '이름 없음';
-                    final email = userModel?.email ?? '';
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Consumer<AuthViewModel>(
+                builder: (context, authViewModel, _) {
+                  final userModel = authViewModel.userModel;
+                  final displayName = userModel?.displayName ?? '이름 없음';
+                  final email = userModel?.email ?? '';
 
-                    return IntrinsicHeight(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 40),
-                          // 사용자 정보 카드
-                          Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
+                  return IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        // 사용자 정보 카드
+                        Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusLg,
                             ),
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusLg,
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '내정보',
+                                style: AppTextStyles.title.copyWith(
+                                  fontSize: 16,
+                                  color: AppColors.secondary,
+                                ),
                               ),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '내정보',
-                                  style: AppTextStyles.title.copyWith(
-                                    fontSize: 16,
-                                    color: AppColors.secondary,
+                              const SizedBox(height: AppSpacing.lg),
+                              // 이름
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      displayName,
+                                      style: AppTextStyles.body.copyWith(
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: AppSpacing.lg),
-                                // 이름
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        displayName,
-                                        style: AppTextStyles.body.copyWith(
-                                          color: AppColors.textPrimary,
-                                        ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              // 이메일
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      email,
+                                      style: AppTextStyles.body.copyWith(
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                // 이메일
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        email,
-                                        style: AppTextStyles.body.copyWith(
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                // 계정 삭제 버튼
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton.icon(
-                                    onPressed: () =>
-                                        _handleDeleteAccount(context),
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 18,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              // 계정 삭제 버튼
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: () =>
+                                      _handleDeleteAccount(context),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: Colors.red,
+                                  ),
+                                  label: Text(
+                                    '계정 삭제',
+                                    style: AppTextStyles.body.copyWith(
                                       color: Colors.red,
                                     ),
-                                    label: Text(
-                                      '계정 삭제',
-                                      style: AppTextStyles.body.copyWith(
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      alignment: Alignment.centerLeft,
-                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    alignment: Alignment.centerLeft,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          const Spacer(),
-                          // 로그아웃 버튼 (하단 고정, 밑줄 스타일)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: 40,
-                              top: AppSpacing.xl,
-                            ),
-                            child: Center(
-                              child: TextButton(
-                                onPressed: () => _handleSignOut(context),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.textSecondary,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.md,
-                                    vertical: AppSpacing.sm,
-                                  ),
+                        ),
+                        const Spacer(),
+                        // 로그아웃 버튼 (하단 고정, 밑줄 스타일)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 40,
+                            top: AppSpacing.xl,
+                          ),
+                          child: Center(
+                            child: TextButton(
+                              onPressed: () => _handleSignOut(context),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.textSecondary,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.sm,
                                 ),
-                                child: Text(
-                                  '로그아웃',
-                                  style: AppTextStyles.body.copyWith(
-                                    color: AppColors.textDisabled,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.textDisabled,
-                                  ),
+                              ),
+                              child: Text(
+                                '로그아웃',
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.textDisabled,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.textDisabled,
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            );
+            ),
+          );
         },
       ),
       bottomNavigationBar: BottomNav(

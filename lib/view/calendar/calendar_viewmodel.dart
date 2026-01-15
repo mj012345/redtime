@@ -18,15 +18,19 @@ class CalendarViewModel extends ChangeNotifier {
     PeriodRepository? periodRepository,
     SymptomRepository? symptomRepository,
     CalendarService? calendarService,
+    bool isNewLogin = false,
   }) : _periodRepo = periodRepository ?? InMemoryPeriodRepository(),
        _symptomRepo = symptomRepository ?? InMemorySymptomRepository(),
        _calendarService = calendarService ?? const CalendarService(),
        userId = (periodRepository is FirebasePeriodRepository)
            ? periodRepository.userId
-           : null {
+           : null,
+       _isNewLogin = isNewLogin {
     // 비동기 초기화를 지연시켜 앱 시작을 블로킹하지 않도록 함
-    Future.microtask(() => _initialize());
+    Future.microtask(() => _initialize(forceRefresh: _isNewLogin));
   }
+
+  final bool _isNewLogin;
 
   @override
   void dispose() {
@@ -47,8 +51,10 @@ class CalendarViewModel extends ChangeNotifier {
   }
 
   /// 비동기 초기화 (Firebase Repository 사용 시)
-  Future<void> _initialize() async {
-    await refresh();
+  /// 로그인 시: forceRefresh: true (서버에서 최신 데이터)
+  /// 앱 재시작 시: forceRefresh: false (캐시 사용, 비용 절감)
+  Future<void> _initialize({bool forceRefresh = false}) async {
+    await refresh(forceRefresh: forceRefresh);
   }
 
   /// 데이터 새로고침 (리프레시용)
