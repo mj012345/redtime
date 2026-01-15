@@ -59,7 +59,7 @@ class InMemorySymptomRepository implements SymptomRepository {
   }
 }
 
-/// Firebase 기반 증상 저장소
+/// Firebase 기반 증상 저장소 (월별 문서 구조)
 class FirebaseSymptomRepository implements SymptomRepository {
   final String userId;
   final FirebaseFirestore? _firestore;
@@ -69,85 +69,25 @@ class FirebaseSymptomRepository implements SymptomRepository {
           ? FirebaseFirestore.instance
           : null;
 
-  @override
-  void saveSymptomForDate(String dateKey, Set<String> symptoms) {
-    if (_firestore == null) {
-      return;
-    }
-
-    _saveSymptomForDateAsync(dateKey, symptoms).catchError((error) {
-      // 에러 처리
-    });
-  }
-
-  Future<void> _saveSymptomForDateAsync(
-    String dateKey,
-    Set<String> symptoms,
-  ) async {
-    final firestore = _firestore;
-    if (firestore == null) {
-      return;
-    }
-
-    try {
-      final docRef = firestore.collection(_collectionPath).doc(dateKey);
-
-      if (symptoms.isEmpty) {
-        // 증상이 비어있으면 문서 삭제
-        await docRef.delete();
-        debugPrint('🗑️ [Firestore 삭제] 증상 문서: $dateKey');
-      } else {
-        // 증상 저장 (기존 문서가 있으면 merge, 없으면 생성)
-        await docRef.set({
-          'symptoms': symptoms.toList(),
-          'date': dateKey,
-        }, SetOptions(merge: true));
-        debugPrint(
-          '💾 [Firestore 쓰기] 증상 문서: $dateKey (${symptoms.length}개 증상)',
-        );
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  @override
-  void deleteSymptomDocument(String dateKey) {
-    if (_firestore == null) {
-      return;
-    }
-
-    _deleteSymptomDocumentAsync(dateKey).catchError((error) {
-      // 에러 처리
-    });
-  }
-
-  Future<void> _deleteSymptomDocumentAsync(String dateKey) async {
-    final firestore = _firestore;
-    if (firestore == null) {
-      return;
-    }
-
-    try {
-      final docRef = firestore.collection(_collectionPath).doc(dateKey);
-      await docRef.delete();
-      debugPrint('🗑️ [Firestore 삭제] 증상 문서: $dateKey');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   String get _collectionPath => 'users/$userId/symptoms';
+
+  /// 날짜 키를 월 키로 변환 (yyyy-MM-dd -> yyyy-MM)
+  String _monthKey(String dateKey) {
+    final parts = dateKey.split('-');
+    if (parts.length >= 2) {
+      return '${parts[0]}-${parts[1]}';
+    }
+    // 잘못된 형식이면 현재 월 반환
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+  }
 
   @override
   Map<String, Set<String>> loadSelections() {
     if (_firestore == null) {
       return {};
     }
-
     // 동기적으로 로드할 수 없으므로 빈 맵 반환
-    // 실제로는 비동기 로드가 필요하지만, 기존 인터페이스 유지를 위해
-    // 별도의 loadAsync 메서드 제공
     return {};
   }
 
@@ -161,115 +101,14 @@ class FirebaseSymptomRepository implements SymptomRepository {
     }
 
     try {
-      // forceRefresh가 true이면 서버에서 강제로 가져오기
-      final snapshot = forceRefresh
-          ? await firestore
-                .collection(_collectionPath)
-                .get(const GetOptions(source: Source.server))
-          : await firestore.collection(_collectionPath).get();
-
-      // 컬렉션이 삭제되었거나 비어있으면 빈 Map 반환
-      if (snapshot.docs.isEmpty) {
-        return {};
-      }
-
-      final result = <String, Set<String>>{};
-
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final dateKey = doc.id; // 문서 ID가 날짜 키
-        final symptoms =
-            (data['symptoms'] as List<dynamic>?)
-                ?.map((e) => e as String)
-                .toSet() ??
-            <String>{};
-        result[dateKey] = symptoms;
-      }
-
-      debugPrint(
-        '📖 [Firestore 읽기] 증상: ${snapshot.docs.length}개 문서 읽기 '
-        '(증상: ${result.length}개)',
-      );
-
-      return result;
+      final result = await loadAllAsync(forceRefresh: forceRefresh);
+      return result.symptoms;
     } catch (e) {
       return {};
     }
   }
 
-  @override
-  void saveSelections(Map<String, Set<String>> selections) {
-    if (_firestore == null) {
-      return;
-    }
-
-    // 비동기 저장 (Firebase는 비동기만 지원)
-    _saveAsync(selections).catchError((error) {
-      // 에러 처리
-    });
-  }
-
-  /// 비동기 저장 (삭제 로직 포함 - 증상 해제 시 문서 삭제)
-  Future<void> _saveAsync(Map<String, Set<String>> selections) async {
-    final firestore = _firestore;
-    if (firestore == null) {
-      return;
-    }
-
-    try {
-      final batch = firestore.batch();
-      final collectionRef = firestore.collection(_collectionPath);
-
-      // 기존 문서 조회 (삭제를 위해 필요)
-      final snapshot = await collectionRef.get();
-      final existingKeys = <String>{};
-      for (final doc in snapshot.docs) {
-        existingKeys.add(doc.id);
-      }
-
-      // 현재 selections의 키 생성 (빈 Set이 아닌 것만)
-      final currentKeys = <String>{};
-      for (final entry in selections.entries) {
-        if (entry.value.isNotEmpty) {
-          currentKeys.add(entry.key);
-        }
-      }
-
-      // 삭제: 기존에 있지만 현재 selections에 없는 문서
-      for (final existingKey in existingKeys) {
-        if (!currentKeys.contains(existingKey)) {
-          final docRef = collectionRef.doc(existingKey);
-          batch.delete(docRef);
-        }
-      }
-
-      // 추가/수정: 현재 selections에 있는 문서들
-      for (final entry in selections.entries) {
-        if (entry.value.isNotEmpty) {
-          final docRef = collectionRef.doc(entry.key);
-          batch.set(docRef, {
-            'symptoms': entry.value.toList(),
-            'date': entry.key,
-          }, SetOptions(merge: true));
-        }
-      }
-
-      final deleteCount = existingKeys.length - currentKeys.length;
-      final writeCount = currentKeys.length;
-      final readCount = snapshot.docs.length;
-
-      await batch.commit();
-
-      debugPrint(
-        '📦 [Firestore 배치 작업] 증상 전체 저장: '
-        '읽기 $readCount개, 쓰기 $writeCount개, 삭제 $deleteCount개',
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// 증상과 메모를 함께 읽기 (통합 읽기 - 중복 읽기 제거)
+  /// 증상과 메모를 함께 읽기 (통합 읽기 - 월별 문서에서 읽기)
   Future<({Map<String, Set<String>> symptoms, Map<String, String> memos})>
   loadAllAsync({bool forceRefresh = false}) async {
     final firestore = _firestore;
@@ -292,31 +131,40 @@ class FirebaseSymptomRepository implements SymptomRepository {
       final symptomsResult = <String, Set<String>>{};
       final memosResult = <String, String>{};
 
-      // 한 번의 순회로 증상과 메모를 함께 파싱
+      // 모든 월 문서를 순회하며 증상과 메모 병합
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final dateKey = doc.id; // 문서 ID가 날짜 키
 
         // 증상 파싱
-        final symptoms =
-            (data['symptoms'] as List<dynamic>?)
-                ?.map((e) => e as String)
-                .toSet() ??
-            <String>{};
-        if (symptoms.isNotEmpty) {
-          symptomsResult[dateKey] = symptoms;
+        final symptomsMap = data['symptoms'] as Map<String, dynamic>?;
+        if (symptomsMap != null) {
+          for (final entry in symptomsMap.entries) {
+            final dateKey = entry.key;
+            final symptomsList = entry.value as List<dynamic>?;
+            if (symptomsList != null && symptomsList.isNotEmpty) {
+              symptomsResult[dateKey] = symptomsList
+                  .map((e) => e as String)
+                  .toSet();
+            }
+          }
         }
 
         // 메모 파싱
-        final memo = data['memo'] as String?;
-        if (memo != null && memo.isNotEmpty) {
-          memosResult[dateKey] = memo;
+        final memosMap = data['memos'] as Map<String, dynamic>?;
+        if (memosMap != null) {
+          for (final entry in memosMap.entries) {
+            final dateKey = entry.key;
+            final memo = entry.value as String?;
+            if (memo != null && memo.isNotEmpty) {
+              memosResult[dateKey] = memo;
+            }
+          }
         }
       }
 
       debugPrint(
-        '📖 [Firestore 읽기] 증상+메모 통합: ${snapshot.docs.length}개 문서 읽기 '
-        '(증상: ${symptomsResult.length}개, 메모: ${memosResult.length}개)',
+        '📖 [Firestore 읽기] 증상+메모 통합 (월별 구조): ${snapshot.docs.length}개 문서 읽기 '
+        '(증상: ${symptomsResult.length}개 날짜, 메모: ${memosResult.length}개 날짜)',
       );
 
       return (symptoms: symptomsResult, memos: memosResult);
@@ -325,53 +173,77 @@ class FirebaseSymptomRepository implements SymptomRepository {
     }
   }
 
-  /// 비동기 메모 로드
-  Future<Map<String, String>> loadMemosAsync({
-    bool forceRefresh = false,
-  }) async {
+  @override
+  void saveSymptomForDate(String dateKey, Set<String> symptoms) {
+    if (_firestore == null) {
+      return;
+    }
+
+    _saveSymptomForDateAsync(dateKey, symptoms).catchError((error) {
+      // 에러 처리
+    });
+  }
+
+  Future<void> _saveSymptomForDateAsync(
+    String dateKey,
+    Set<String> symptoms,
+  ) async {
     final firestore = _firestore;
     if (firestore == null) {
-      return {};
+      return;
     }
 
     try {
-      final snapshot = forceRefresh
-          ? await firestore
-                .collection(_collectionPath)
-                .get(const GetOptions(source: Source.server))
-          : await firestore.collection(_collectionPath).get();
+      final monthKey = _monthKey(dateKey);
+      final docRef = firestore.collection(_collectionPath).doc(monthKey);
 
-      if (snapshot.docs.isEmpty) {
-        return {};
-      }
-
-      final result = <String, String>{};
-
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final dateKey = doc.id;
-        final memo = data['memo'] as String?;
-        if (memo != null && memo.isNotEmpty) {
-          result[dateKey] = memo;
-        }
-      }
-
-      debugPrint(
-        '📖 [Firestore 읽기] 메모: ${snapshot.docs.length}개 문서 읽기 '
-        '(메모: ${result.length}개)',
+      // 해당 월 문서 읽기
+      final docSnapshot = await docRef.get();
+      final data = docSnapshot.data() ?? {};
+      final symptomsMap = Map<String, dynamic>.from(
+        data['symptoms'] as Map<dynamic, dynamic>? ?? {},
+      );
+      final memosMap = Map<String, dynamic>.from(
+        data['memos'] as Map<dynamic, dynamic>? ?? {},
       );
 
-      return result;
+      // 증상 업데이트
+      if (symptoms.isEmpty) {
+        symptomsMap.remove(dateKey);
+      } else {
+        symptomsMap[dateKey] = symptoms.toList();
+      }
+
+      // 문서 저장 (증상이 모두 비어있고 메모도 없으면 문서 삭제)
+      final hasAnyData = symptomsMap.isNotEmpty || memosMap.isNotEmpty;
+
+      if (!hasAnyData) {
+        await docRef.delete();
+        debugPrint('🗑️ [Firestore 삭제] 증상 월별 문서: $monthKey');
+      } else {
+        await docRef.set({
+          'symptoms': symptomsMap,
+          'memos': memosMap,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: false));
+
+        debugPrint(
+          '💾 [Firestore 쓰기] 증상 월별 문서: $monthKey (날짜: $dateKey, ${symptoms.length}개 증상)',
+        );
+      }
     } catch (e) {
-      return {};
+      rethrow;
     }
+  }
+
+  @override
+  void deleteSymptomDocument(String dateKey) {
+    saveSymptomForDate(dateKey, <String>{});
   }
 
   @override
   Map<String, String> loadMemos() {
     // 동기적으로 로드할 수 없으므로 빈 맵 반환
-    // 실제로는 비동기 로드가 필요하지만, 기존 인터페이스 유지를 위해
-    // 별도의 loadMemosAsync 메서드 제공
     return {};
   }
 
@@ -393,19 +265,40 @@ class FirebaseSymptomRepository implements SymptomRepository {
     }
 
     try {
-      final docRef = firestore.collection(_collectionPath).doc(dateKey);
+      final monthKey = _monthKey(dateKey);
+      final docRef = firestore.collection(_collectionPath).doc(monthKey);
 
+      // 해당 월 문서 읽기
+      final docSnapshot = await docRef.get();
+      final data = docSnapshot.data() ?? {};
+      final symptomsMap = Map<String, dynamic>.from(
+        data['symptoms'] as Map<dynamic, dynamic>? ?? {},
+      );
+      final memosMap = Map<String, dynamic>.from(
+        data['memos'] as Map<dynamic, dynamic>? ?? {},
+      );
+
+      // 메모 업데이트
       if (memo.trim().isEmpty) {
-        // 메모가 비어있으면 memo 필드만 삭제
-        await docRef.update({'memo': FieldValue.delete()});
-        debugPrint('🗑️ [Firestore 업데이트] 메모 필드 삭제: $dateKey');
+        memosMap.remove(dateKey);
       } else {
-        // 메모 저장 (기존 문서가 있으면 merge, 없으면 생성)
+        memosMap[dateKey] = memo;
+      }
+
+      // 문서 저장 (증상이 모두 비어있고 메모도 없으면 문서 삭제)
+      final hasAnyData = symptomsMap.isNotEmpty || memosMap.isNotEmpty;
+
+      if (!hasAnyData) {
+        await docRef.delete();
+        debugPrint('🗑️ [Firestore 삭제] 메모 월별 문서: $monthKey');
+      } else {
         await docRef.set({
-          'memo': memo,
-          'date': dateKey,
-        }, SetOptions(merge: true));
-        debugPrint('💾 [Firestore 쓰기] 메모 문서: $dateKey');
+          'symptoms': symptomsMap,
+          'memos': memosMap,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: false));
+
+        debugPrint('💾 [Firestore 쓰기] 메모 월별 문서: $monthKey (날짜: $dateKey)');
       }
     } catch (e) {
       rethrow;
@@ -415,5 +308,11 @@ class FirebaseSymptomRepository implements SymptomRepository {
   @override
   void deleteMemo(String dateKey) {
     saveMemo(dateKey, '');
+  }
+
+  @override
+  void saveSelections(Map<String, Set<String>> selections) {
+    // 월별 구조에서는 saveSelections을 사용하지 않음
+    // 개별 날짜 저장(saveSymptomForDate)만 사용
   }
 }
