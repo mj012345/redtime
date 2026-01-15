@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/models/symptom_category.dart';
@@ -39,14 +40,25 @@ class CalendarViewModel extends ChangeNotifier {
       timer.cancel();
     }
     _symptomSaveTimers.clear();
-    // 대기 중인 모든 증상 저장 즉시 수행
-    for (final entry in _symptomSelections.entries) {
-      if (entry.value.isNotEmpty) {
-        _symptomRepo.saveSymptomForDate(entry.key, entry.value);
+
+    // 로그인 상태 확인 (로그아웃 시 저장 불필요)
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+
+    if (isLoggedIn) {
+      // 대기 중인 모든 증상 저장 즉시 수행
+      for (final entry in _symptomSelections.entries) {
+        if (entry.value.isNotEmpty) {
+          _symptomRepo.saveSymptomForDate(entry.key, entry.value);
+        }
       }
+      _periodSaveTimer?.cancel();
+      _performPeriodSave();
+    } else {
+      // 로그아웃 상태면 타이머만 취소 (저장 시도하지 않음)
+      debugPrint('ℹ️ [CalendarViewModel] 로그아웃 상태 - 저장 작업 건너뜀');
+      _periodSaveTimer?.cancel();
     }
-    _periodSaveTimer?.cancel();
-    _performPeriodSave();
+
     super.dispose();
   }
 
@@ -106,7 +118,7 @@ class CalendarViewModel extends ChangeNotifier {
           .toList();
 
       _recomputeSymptomRecordDays();
-      _recomputePeriodDays();
+      _recomputePeriodDays(shouldSave: false); // 데이터 로드 시에는 저장하지 않음
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
@@ -117,7 +129,7 @@ class CalendarViewModel extends ChangeNotifier {
       periodCycles = [];
       _savedPeriodCycles = [];
       _recomputeSymptomRecordDays();
-      _recomputePeriodDays();
+      _recomputePeriodDays(shouldSave: false); // 데이터 로드 시에는 저장하지 않음
       _isInitialized = true;
       notifyListeners();
       rethrow; // 리프레시 실패를 호출자에게 알림
@@ -474,7 +486,7 @@ class CalendarViewModel extends ChangeNotifier {
   void _ensureDefaultEnd(int idx) =>
       _calendarService.ensureDefaultEnd(periodCycles, idx);
 
-  void _recomputePeriodDays() {
+  void _recomputePeriodDays({bool shouldSave = true}) {
     periodDays = _calendarService.computePeriodDays(periodCycles);
     final derived = _calendarService.computeDerivedFertility(
       periodCycles: periodCycles,
@@ -487,7 +499,10 @@ class CalendarViewModel extends ChangeNotifier {
     expectedOvulationDay = derived.expectedOvulationDay;
 
     // 생리 주기 변경 시 Firebase에 저장 (디바운싱 적용)
-    _persistPeriods();
+    // 데이터 로드 시에는 저장하지 않음 (shouldSave: false)
+    if (shouldSave) {
+      _persistPeriods();
+    }
 
     notifyListeners();
   }
