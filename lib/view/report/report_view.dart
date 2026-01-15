@@ -408,16 +408,12 @@ class ReportView extends StatelessWidget {
           );
           final chartData = _generateChartData(vm.periodCycles, vm.today);
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              await vm.refresh();
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.lg,
-              ),
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.lg,
+            ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -785,7 +781,6 @@ class ReportView extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
           );
         },
       ),

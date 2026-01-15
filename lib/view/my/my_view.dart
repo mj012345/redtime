@@ -113,16 +113,10 @@ class MyView extends StatelessWidget {
         foregroundColor: const Color(0xFF333333),
         elevation: 0,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          // 현재 특별한 리프레시 로직 없음
-          // 추후 사용자 정보 갱신 등에 사용할 수 있도록 구조만 추가
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Consumer<AuthViewModel>(
@@ -248,8 +242,7 @@ class MyView extends StatelessWidget {
                 ),
               ),
             );
-          },
-        ),
+        },
       ),
       bottomNavigationBar: BottomNav(
         current: NavTab.my,

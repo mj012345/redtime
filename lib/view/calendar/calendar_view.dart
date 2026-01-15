@@ -248,13 +248,9 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: () async {
-                        await vm.refresh();
-                      },
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           if (selectedDay != null && _showStickyHeader)
                             SliverPersistentHeader(
@@ -400,7 +396,6 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                           ),
                         ],
                       ),
-                    ),
                   ),
                 ],
               ),
