@@ -9,6 +9,8 @@ class UserModel {
   final String? phoneNumber;
   final String? termsVersion; // 이용약관 동의 버전
   final String? privacyVersion; // 개인정보처리방침 동의 버전
+  final bool? isDeleted; // 삭제 여부 (Soft Delete)
+  final DateTime? deletedAt; // 삭제 시점
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -22,6 +24,8 @@ class UserModel {
     this.phoneNumber,
     this.termsVersion,
     this.privacyVersion,
+    this.isDeleted,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -38,6 +42,8 @@ class UserModel {
       'phoneNumber': phoneNumber,
       'termsVersion': termsVersion,
       'privacyVersion': privacyVersion,
+      'isDeleted': isDeleted,
+      'deletedAt': deletedAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -55,6 +61,10 @@ class UserModel {
       phoneNumber: map['phoneNumber'] as String?,
       termsVersion: map['termsVersion'] as String?,
       privacyVersion: map['privacyVersion'] as String?,
+      isDeleted: map['isDeleted'] as bool?,
+      deletedAt: map['deletedAt'] != null
+          ? DateTime.parse(map['deletedAt'] as String)
+          : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
@@ -71,6 +81,8 @@ class UserModel {
     String? phoneNumber,
     String? termsVersion,
     String? privacyVersion,
+    bool? isDeleted,
+    DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -84,6 +96,8 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       termsVersion: termsVersion ?? this.termsVersion,
       privacyVersion: privacyVersion ?? this.privacyVersion,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

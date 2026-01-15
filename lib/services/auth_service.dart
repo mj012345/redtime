@@ -164,10 +164,23 @@ class AuthService {
 
         // 조회 성공 시에만 isNewUser 판정
         if (existingUserModel != null) {
-          isNewUser = false; // 기존 회원
-          debugPrint(
-            '✅ [AuthService] Step 6: 기존 회원 확인 - Firestore에서 사용자 정보 조회 성공',
-          );
+          // isDeleted 체크: 삭제된 사용자는 신규 회원으로 처리하여 회원가입 진행
+          if (existingUserModel.isDeleted == true) {
+            debugPrint(
+              '🚫 [AuthService] Step 6: 삭제된 계정 감지 - 신규 회원으로 처리하여 회원가입 진행',
+            );
+            // 신규 회원으로 처리하여 회원가입 진행
+            isNewUser = true;
+            existingUserModel = null; // 기존 모델 무시, 새로 생성
+            debugPrint(
+              '🔄 [AuthService] Step 6: 삭제된 계정 재가입 처리 - 신규 회원으로 전환',
+            );
+          } else {
+            isNewUser = false; // 기존 회원 (삭제되지 않음)
+            debugPrint(
+              '✅ [AuthService] Step 6: 기존 회원 확인 - Firestore에서 사용자 정보 조회 성공',
+            );
+          }
         } else {
           isNewUser = true; // 신규 회원 (문서가 없음)
           debugPrint('✨ [AuthService] Step 6: 신규 회원 확인 - Firestore에 사용자 정보 없음');

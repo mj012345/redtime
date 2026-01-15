@@ -176,11 +176,23 @@ class FirebaseSymptomRepository implements SymptomRepository {
   @override
   void saveSymptomForDate(String dateKey, Set<String> symptoms) {
     if (_firestore == null) {
+      debugPrint('⚠️ [SymptomRepository] Firestore가 초기화되지 않음 - 저장 불가');
       return;
     }
 
     _saveSymptomForDateAsync(dateKey, symptoms).catchError((error) {
-      // 에러 처리
+      debugPrint('❌ [SymptomRepository] 증상 저장 실패: $error');
+      debugPrint('   - 날짜: $dateKey');
+      debugPrint('   - 증상 개수: ${symptoms.length}');
+      debugPrint('   - 에러 타입: ${error.runtimeType}');
+      if (error is FirebaseException) {
+        debugPrint('   - Firebase 에러 코드: ${error.code}');
+        debugPrint('   - Firebase 에러 메시지: ${error.message}');
+        if (error.code == 'permission-denied') {
+          debugPrint('   🚫 [SymptomRepository] 권한 거부 - Security Rules 확인 필요');
+          debugPrint('   현재 경로: $_collectionPath');
+        }
+      }
     });
   }
 
@@ -230,8 +242,20 @@ class FirebaseSymptomRepository implements SymptomRepository {
         debugPrint(
           '💾 [Firestore 쓰기] 증상 월별 문서: $monthKey (날짜: $dateKey, ${symptoms.length}개 증상)',
         );
+        debugPrint('✅ [SymptomRepository] 증상 저장 완료');
       }
     } catch (e) {
+      debugPrint('❌ [SymptomRepository] _saveSymptomForDateAsync 실패: $e');
+      debugPrint('   - 날짜: $dateKey');
+      debugPrint('   - 에러 타입: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        debugPrint('   - Firebase 에러 코드: ${e.code}');
+        debugPrint('   - Firebase 에러 메시지: ${e.message}');
+        if (e.code == 'permission-denied') {
+          debugPrint('   🚫 [SymptomRepository] 권한 거부 - Security Rules 확인 필요');
+          debugPrint('   현재 경로: $_collectionPath');
+        }
+      }
       rethrow;
     }
   }
@@ -250,11 +274,22 @@ class FirebaseSymptomRepository implements SymptomRepository {
   @override
   void saveMemo(String dateKey, String memo) {
     if (_firestore == null) {
+      debugPrint('⚠️ [SymptomRepository] Firestore가 초기화되지 않음 - 메모 저장 불가');
       return;
     }
 
     _saveMemoAsync(dateKey, memo).catchError((error) {
-      // 에러 처리
+      debugPrint('❌ [SymptomRepository] 메모 저장 실패: $error');
+      debugPrint('   - 날짜: $dateKey');
+      debugPrint('   - 에러 타입: ${error.runtimeType}');
+      if (error is FirebaseException) {
+        debugPrint('   - Firebase 에러 코드: ${error.code}');
+        debugPrint('   - Firebase 에러 메시지: ${error.message}');
+        if (error.code == 'permission-denied') {
+          debugPrint('   🚫 [SymptomRepository] 권한 거부 - Security Rules 확인 필요');
+          debugPrint('   현재 경로: $_collectionPath');
+        }
+      }
     });
   }
 
@@ -299,8 +334,20 @@ class FirebaseSymptomRepository implements SymptomRepository {
         }, SetOptions(merge: false));
 
         debugPrint('💾 [Firestore 쓰기] 메모 월별 문서: $monthKey (날짜: $dateKey)');
+        debugPrint('✅ [SymptomRepository] 메모 저장 완료');
       }
     } catch (e) {
+      debugPrint('❌ [SymptomRepository] _saveMemoAsync 실패: $e');
+      debugPrint('   - 날짜: $dateKey');
+      debugPrint('   - 에러 타입: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        debugPrint('   - Firebase 에러 코드: ${e.code}');
+        debugPrint('   - Firebase 에러 메시지: ${e.message}');
+        if (e.code == 'permission-denied') {
+          debugPrint('   🚫 [SymptomRepository] 권한 거부 - Security Rules 확인 필요');
+          debugPrint('   현재 경로: $_collectionPath');
+        }
+      }
       rethrow;
     }
   }
