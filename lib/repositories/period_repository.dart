@@ -92,12 +92,6 @@ class FirebasePeriodRepository implements PeriodRepository {
 
       // 날짜순 정렬
       allCycles.sort((a, b) => a.start.compareTo(b.start));
-
-      debugPrint(
-        '📖 [Firestore 읽기] 생리 주기 (년도별 구조): ${snapshot.docs.length}개 문서 읽기 '
-        '(주기: ${allCycles.length}개)',
-      );
-
       return allCycles;
     } catch (e) {
       return [];
@@ -107,20 +101,13 @@ class FirebasePeriodRepository implements PeriodRepository {
   @override
   void save(List<PeriodCycle> cycles, {Set<String>? deleteStartDates}) {
     if (_firestore == null) {
-      debugPrint('⚠️ [PeriodRepository] Firestore가 초기화되지 않음 - 저장 불가');
       return;
     }
 
     // 비동기 저장 (Firebase는 비동기만 지원)
     _saveAsync(cycles, deleteStartDates: deleteStartDates).catchError((error) {
-      debugPrint('❌ [PeriodRepository] 저장 실패: $error');
-      debugPrint('   - 에러 타입: ${error.runtimeType}');
       if (error is FirebaseException) {
-        debugPrint('   - Firebase 에러 코드: ${error.code}');
-        debugPrint('   - Firebase 에러 메시지: ${error.message}');
         if (error.code == 'permission-denied') {
-          debugPrint('   🚫 [PeriodRepository] 권한 거부 - Security Rules 확인 필요');
-          debugPrint('   현재 경로: $_collectionPath');
         }
       }
     });
@@ -138,10 +125,6 @@ class FirebasePeriodRepository implements PeriodRepository {
 
     // 현재 사용자 확인 (디버깅용)
     final currentUser = FirebaseAuth.instance.currentUser;
-    debugPrint('🔍 [PeriodRepository] 저장 시도 - 현재 사용자: ${currentUser?.uid ?? "null"}');
-    debugPrint('🔍 [PeriodRepository] 저장 시도 - userId: $userId');
-    debugPrint('🔍 [PeriodRepository] 저장 시도 - 경로: $_collectionPath');
-
     try {
       final batch = firestore.batch();
       final collectionRef = firestore.collection(_collectionPath);
@@ -185,24 +168,11 @@ class FirebasePeriodRepository implements PeriodRepository {
       if (writeCount > 0) {
         await batch.commit();
       } else {
-        debugPrint('ℹ️ [PeriodRepository] 저장할 주기 데이터 없음 - commit 생략');
         return;
       }
-
-      debugPrint(
-        '📦 [Firestore 배치 작업] 생리 주기 저장 (년도별 구조): '
-        '읽기 0개, 쓰기 $writeCount개, 삭제 0개',
-      );
-      debugPrint('✅ [PeriodRepository] 생리 주기 저장 완료');
     } catch (e) {
-      debugPrint('❌ [PeriodRepository] _saveAsync 실패: $e');
-      debugPrint('   - 에러 타입: ${e.runtimeType}');
       if (e is FirebaseException) {
-        debugPrint('   - Firebase 에러 코드: ${e.code}');
-        debugPrint('   - Firebase 에러 메시지: ${e.message}');
         if (e.code == 'permission-denied') {
-          debugPrint('   🚫 [PeriodRepository] 권한 거부 - Security Rules 확인 필요');
-          debugPrint('   현재 경로: $_collectionPath');
         }
       }
       rethrow;

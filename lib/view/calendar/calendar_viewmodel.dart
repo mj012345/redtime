@@ -55,7 +55,6 @@ class CalendarViewModel extends ChangeNotifier {
       _performPeriodSave();
     } else {
       // 로그아웃 상태면 타이머만 취소 (저장 시도하지 않음)
-      debugPrint('ℹ️ [CalendarViewModel] 로그아웃 상태 - 저장 작업 건너뜀');
       _periodSaveTimer?.cancel();
     }
 
@@ -72,8 +71,6 @@ class CalendarViewModel extends ChangeNotifier {
   /// 데이터 새로고침 (리프레시용)
   Future<void> refresh({bool forceRefresh = false}) async {
     try {
-      debugPrint('🔄 [데이터 새로고침 시작] forceRefresh: $forceRefresh');
-
       // 리프레시 시 기존 데이터를 먼저 초기화 (Firebase에서 빈 데이터가 올 수 있으므로)
       Map<String, Set<String>> newSymptomSelections = {};
       List<PeriodCycle> newPeriodCycles = [];
@@ -99,8 +96,6 @@ class CalendarViewModel extends ChangeNotifier {
         newPeriodCycles = _periodRepo.load();
       }
 
-      debugPrint('✅ [데이터 새로고침 완료]');
-
       // 가져온 데이터로 덮어쓰기 (빈 데이터여도)
       _symptomSelections = newSymptomSelections;
       _memos = newMemos;
@@ -122,7 +117,6 @@ class CalendarViewModel extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('CalendarViewModel 리프레시 에러: $e');
       // 에러 발생 시 빈 데이터로 초기화 (기존 데이터 유지하지 않음)
       _symptomSelections = {};
       _memos = {};

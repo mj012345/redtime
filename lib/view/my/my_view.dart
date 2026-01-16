@@ -37,7 +37,6 @@ class MyView extends StatelessWidget {
     );
 
     if (shouldSignOut == true && context.mounted) {
-      debugPrint('🚪 [MyView] 로그아웃 시작');
       await authViewModel.signOut();
 
       // 로그아웃 완료 후 잠시 대기하여 완전히 로그아웃되었는지 확인
@@ -45,7 +44,6 @@ class MyView extends StatelessWidget {
 
       // 로그아웃 완료 후 로그인 페이지로 이동
       if (context.mounted) {
-        debugPrint('🚪 [MyView] 로그인 페이지로 이동');
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
@@ -135,7 +133,6 @@ class MyView extends StatelessWidget {
             ),
           );
         }
-        debugPrint('❌ [MyView] 계정 삭제 중 예외 발생: $e');
       }
     }
   }

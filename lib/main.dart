@@ -27,8 +27,6 @@ Future<void> main() async {
 
   // 전역 에러 핸들러 설정 (빨간 에러 화면 방지)
   FlutterError.onError = (FlutterErrorDetails details) {
-    debugPrint('전역 에러: ${details.exception}');
-    debugPrint('스택: ${details.stack}');
     // FlutterError.presentError()를 호출하지 않아 빨간 화면이 나타나지 않음
     // release 모드에서도 작동하도록 처리
     if (kDebugMode) {
@@ -38,8 +36,6 @@ Future<void> main() async {
 
   // 플랫폼 예외 핸들러
   PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('플랫폼 에러: $error');
-    debugPrint('스택: $stack');
     return true; // 에러 처리됨
   };
 
@@ -49,7 +45,6 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    debugPrint('Firebase 초기화 실패: $e');
     // 초기화 실패해도 앱은 실행 (FirebaseService.checkInitialized()에서 재시도)
   }
 
@@ -76,11 +71,7 @@ class MyApp extends StatelessWidget {
             if (userId == null) {
               // 로그인 안 된 경우 메모리 Repository 사용
               // 이전 인스턴스가 있으면 dispose하고 새로 생성
-              if (previous != null && previous.userId != null) {
-                debugPrint(
-                  '🔄 [CalendarViewModel] 로그아웃 감지 - 메모리 Repository로 전환',
-                );
-              }
+              if (previous != null && previous.userId != null) {}
               return CalendarViewModel();
             }
 
@@ -91,9 +82,6 @@ class MyApp extends StatelessWidget {
 
             // 사용자 ID가 변경되었거나, 새 로그인인 경우 새로운 인스턴스 생성
             if (previousUserId != userId || isNewLogin) {
-              debugPrint(
-                '🔄 [CalendarViewModel] 새 인스턴스 생성: userId=$userId, isNewLogin=$isNewLogin',
-              );
               // Firebase Repository 사용
               final periodRepo = FirebasePeriodRepository(userId);
               final symptomRepo = FirebaseSymptomRepository(userId);
@@ -113,20 +101,14 @@ class MyApp extends StatelessWidget {
 
                 while (authVm.currentUser == null || authVm.userModel == null) {
                   if (DateTime.now().difference(startTime) > maxWaitTime) {
-                    debugPrint(
-                      '⏰ [CalendarViewModel] 사용자 데이터 대기 타임아웃 - 동기화 생략',
-                    );
                     return;
                   }
                   await Future.delayed(const Duration(milliseconds: 100));
                 }
-
-                debugPrint('🔄 [CalendarViewModel] 달력 화면 진입 - 사용자 데이터 동기화 시작');
                 final syncSuccess = await authVm.syncUserDataToFirestore();
                 if (syncSuccess) {
-                  debugPrint('✅ [CalendarViewModel] 사용자 데이터 동기화 완료');
                 } else {
-                  debugPrint('⚠️ [CalendarViewModel] 사용자 데이터 동기화 실패 (계속 진행)');
+                  // 사용자 데이터 동기화 실패 (계속 진행)
                 }
               });
 
@@ -138,7 +120,6 @@ class MyApp extends StatelessWidget {
               return viewModel;
             } else {
               // 동일 사용자이고 새 로그인이 아닌 경우 (앱 재시작 등), 기존 인스턴스 재사용
-              debugPrint('🔄 [CalendarViewModel] 기존 인스턴스 재사용: userId=$userId');
               return previous!;
             }
           },
@@ -220,10 +201,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   /// 사용자 유효성 검증
   Future<void> _validateUser() async {
-    debugPrint('🔍 [AuthWrapper] 사용자 유효성 검증 시작');
     // Firebase 초기화 확인
     if (!FirebaseService.checkInitialized()) {
-      debugPrint('❌ [AuthWrapper] Firebase 미초기화 - 로그인 화면 표시');
       setState(() {
         _isValidating = false;
         _isValidUser = false;
@@ -233,19 +212,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      debugPrint(
-        '🔍 [AuthWrapper] FirebaseAuth.instance.currentUser 확인: ${user?.uid ?? "null"}',
-      );
       if (user != null) {
-        debugPrint('✅ [AuthWrapper] 기존 로그인 세션 발견 - 사용자 정보 검증 시작');
         try {
           // 사용자 정보 갱신 (Firebase에서 삭제되었는지 확인)
           // 타임아웃 추가하여 무한 대기 방지
           await user.reload().timeout(
             const Duration(seconds: 5),
-            onTimeout: () {
-              debugPrint('사용자 정보 갱신 타임아웃');
-            },
+            onTimeout: () {},
           );
 
           // 갱신된 사용자 정보 가져오기
@@ -266,17 +239,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 .timeout(
                   const Duration(seconds: 5),
                   onTimeout: () {
-                    debugPrint('토큰 갱신 타임아웃');
                     throw TimeoutException('토큰 갱신 타임아웃');
                   },
                 );
-            debugPrint('✅ [AuthWrapper] 사용자 검증 성공 - 자동 로그인 (세션 유지)');
             setState(() {
               _isValidating = false;
               _isValidUser = true;
             });
           } catch (e) {
-            debugPrint('❌ [AuthWrapper] 토큰 검증 실패 - 로그아웃 처리: $e');
             await FirebaseAuth.instance.signOut();
             setState(() {
               _isValidating = false;
@@ -285,7 +255,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         } catch (e) {
           // 에러 발생 시 로그아웃 처리
-          debugPrint('❌ [AuthWrapper] 사용자 정보 갱신 실패 - 로그아웃 처리: $e');
           try {
             await FirebaseAuth.instance.signOut();
           } catch (_) {}
@@ -295,7 +264,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           });
         }
       } else {
-        debugPrint('ℹ️ [AuthWrapper] 기존 로그인 세션 없음 - 로그인 화면 표시');
         setState(() {
           _isValidating = false;
           _isValidUser = false;
@@ -313,24 +281,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     // 검증 중
     if (_isValidating) {
-      debugPrint('🔄 [AuthWrapper] 사용자 검증 중...');
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // 검증 완료 후 화면 전환
     if (_isValidUser) {
-      debugPrint('✅ [AuthWrapper] 사용자 검증 완료 - authStateChanges 스트림 구독 시작');
       return StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          debugPrint('📡 [AuthWrapper] authStateChanges 이벤트 수신');
-          debugPrint('  - hasData: ${snapshot.hasData}');
-          debugPrint('  - hasError: ${snapshot.hasError}');
-          debugPrint('  - connectionState: ${snapshot.connectionState}');
-
           // 스트림이 아직 데이터를 기다리는 중이면 로딩 화면 표시
           if (snapshot.connectionState == ConnectionState.waiting) {
-            debugPrint('🔄 [AuthWrapper] authStateChanges 대기 중...');
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
@@ -338,38 +298,26 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
           // 에러 발생 시 로그인 화면으로 이동
           if (snapshot.hasError) {
-            debugPrint(
-              '❌ [AuthWrapper] authStateChanges Stream 에러: ${snapshot.error}',
-            );
-            debugPrint('❌ [AuthWrapper] 로그인 화면으로 전환');
             return const LoginView();
           }
 
           // 스트림이 활성 상태이고 데이터가 있는 경우
           if (snapshot.connectionState == ConnectionState.active) {
             if (snapshot.hasData && snapshot.data != null) {
-              final user = snapshot.data!;
-              debugPrint('✅ [AuthWrapper] 로그인된 사용자 감지: ${user.uid}');
-              debugPrint('✅ [AuthWrapper] 달력 화면으로 전환');
               // 로그인된 사용자는 달력 화면으로 (약관 동의는 로그인 후 처리)
               return const FigmaCalendarPage();
             } else {
-              debugPrint('❌ [AuthWrapper] 로그인되지 않음 - 로그인 화면으로 전환');
               return const LoginView();
             }
           }
 
           // 기타 상태 (done 등) - 기본적으로 로딩 화면 표시
-          debugPrint(
-            '🔄 [AuthWrapper] authStateChanges 기타 상태: ${snapshot.connectionState}',
-          );
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         },
       );
     } else {
-      debugPrint('❌ [AuthWrapper] 사용자 검증 실패 - 로그인 화면 표시');
       return const LoginView();
     }
   }
