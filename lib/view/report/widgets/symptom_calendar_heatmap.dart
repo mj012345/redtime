@@ -442,7 +442,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
           symptomTexts.add(categorySymptoms.join(', '));
         } else {
           // '좋음'이 있는지 확인 (다른 증상은 없지만 '좋음'만 있는 경우)
-          final hasGood = symptoms.contains('${categoryName}/좋음');
+          final hasGood = symptoms.contains('$categoryName/좋음');
           if (hasGood) {
             symptomTexts.add('좋음');
           }

@@ -15,7 +15,7 @@ abstract class SymptomRepository {
 /// 기본 인메모리 구현 (임시 저장 용)
 class InMemorySymptomRepository implements SymptomRepository {
   Map<String, Set<String>> _store = {};
-  Map<String, String> _memos = {};
+  final Map<String, String> _memos = {};
 
   @override
   Map<String, Set<String>> loadSelections() =>

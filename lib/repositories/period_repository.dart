@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/services/firebase_service.dart';
 

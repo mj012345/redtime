@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -226,6 +225,7 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
       }
 
       // 2. Google 로그인 진행 (AuthViewModel을 통해 로그인하여 수동 로그인 플래그 설정)
+      if (!context.mounted) return;
       final authViewModel = context.read<AuthViewModel>();
       final authService = AuthService();
 

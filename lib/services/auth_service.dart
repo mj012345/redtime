@@ -271,13 +271,17 @@ class AuthService {
     if (_auth != null) {
       try {
         futures.add(_auth!.signOut());
-      } catch (e) {}
+      } catch (e) {
+        // 로그아웃 실패 무시
+      }
     }
 
     // 2. Google Sign In 로그아웃
     try {
       futures.add(_googleSignIn.signOut());
-    } catch (e) {}
+    } catch (e) {
+      // 로그아웃 실패 무시
+    }
 
     // 3. Google Sign In 연결 완전히 해제 (disconnect)
     try {
@@ -303,7 +307,9 @@ class AuthService {
       try {
         await _auth!.signOut();
         await Future.delayed(const Duration(milliseconds: 200));
-      } catch (e) {}
+      } catch (e) {
+        // 재시도 중 로그아웃 실패 무시
+      }
       retryCount++;
     }
 
@@ -344,14 +350,8 @@ class AuthService {
 
       if (providerId == 'google.com') {
         GoogleSignInAccount? googleUser;
-        try {
-          googleUser = await _googleSignIn.signInSilently();
-          if (googleUser == null) {
-            googleUser = await _googleSignIn.signIn();
-          }
-        } catch (e) {
-          googleUser = await _googleSignIn.signIn();
-        }
+        googleUser = await _googleSignIn.signInSilently();
+        googleUser ??= await _googleSignIn.signIn();
 
         if (googleUser == null) {
           throw Exception('재인증이 취소되었습니다.');

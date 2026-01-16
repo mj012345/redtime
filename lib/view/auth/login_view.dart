@@ -67,11 +67,12 @@ class LoginView extends StatelessWidget {
                       child: Image.network(
                         'https://developers.google.com/identity/images/g-logo.png',
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.g_mobiledata,
-                          color: Color(0xFF4285F4),
-                          size: 26,
-                        ),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.g_mobiledata,
+                              color: Color(0xFF4285F4),
+                              size: 26,
+                            ),
                       ),
                     ),
                     onPressed: () {

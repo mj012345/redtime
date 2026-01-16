@@ -11,7 +11,7 @@ class CalendarViewModel extends ChangeNotifier {
   final String? userId; // 사용자 ID 저장 (Repository 타입 확인용)
 
   // 디바운싱 타이머 (1.5초 지연)
-  Map<String, Timer> _symptomSaveTimers = {}; // 날짜별 증상 저장 타이머
+  final Map<String, Timer> _symptomSaveTimers = {}; // 날짜별 증상 저장 타이머
   Timer? _periodSaveTimer;
   static const Duration _debounceDelay = Duration(milliseconds: 1500);
 
