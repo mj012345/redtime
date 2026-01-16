@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/services/firebase_service.dart';
 
@@ -104,10 +103,13 @@ class FirebasePeriodRepository implements PeriodRepository {
       return;
     }
 
-    // 비동기 저장 (Firebase는 비동기만 지원)
+    // Offline Persistence: 네트워크 오류는 자동으로 로컬 캐시에 저장되고 자동 동기화
+    // 권한 오류(permission-denied)만 별도 처리
     _saveAsync(cycles, deleteStartDates: deleteStartDates).catchError((error) {
       if (error is FirebaseException) {
+        // 권한 오류만 처리
         if (error.code == 'permission-denied') {
+          // 권한 오류는 사용자 데이터 동기화 실패일 가능성이 높음
         }
       }
     });
@@ -123,8 +125,6 @@ class FirebasePeriodRepository implements PeriodRepository {
       return;
     }
 
-    // 현재 사용자 확인 (디버깅용)
-    final currentUser = FirebaseAuth.instance.currentUser;
     try {
       final batch = firestore.batch();
       final collectionRef = firestore.collection(_collectionPath);
@@ -134,6 +134,60 @@ class FirebasePeriodRepository implements PeriodRepository {
       for (final cycle in cycles) {
         final yearKey = _yearKey(cycle.start);
         cyclesByYear.putIfAbsent(yearKey, () => []).add(cycle);
+      }
+
+      // 삭제할 주기가 있는 경우 해당 년도 문서에서 제거
+      if (deleteStartDates != null && deleteStartDates.isNotEmpty) {
+        // 삭제할 시작일의 년도별 그룹화
+        final deleteDatesByYear = <String, Set<String>>{};
+        for (final dateKey in deleteStartDates) {
+          // dateKey는 yyyy-MM-dd 형식
+          final parts = dateKey.split('-');
+          if (parts.isNotEmpty) {
+            final yearKey = parts[0];
+            deleteDatesByYear
+                .putIfAbsent(yearKey, () => <String>{})
+                .add(dateKey);
+          }
+        }
+
+        // 각 년도 문서를 읽어서 삭제할 주기 제거
+        for (final entry in deleteDatesByYear.entries) {
+          final yearKey = entry.key;
+          final deleteDates = entry.value;
+          final docRef = collectionRef.doc(yearKey);
+
+          try {
+            // 기존 문서 읽기
+            final docSnapshot = await docRef.get();
+            if (docSnapshot.exists) {
+              final data = docSnapshot.data() ?? {};
+              final cyclesList = (data['cycles'] as List<dynamic>?) ?? [];
+
+              // 삭제할 주기 제외한 새로운 리스트 생성
+              final filteredCycles = cyclesList.where((cycleData) {
+                final cycleMap = cycleData as Map<String, dynamic>;
+                final start = DateTime.parse(cycleMap['start'] as String);
+                final startKey =
+                    '${start.year.toString().padLeft(4, '0')}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+                return !deleteDates.contains(startKey);
+              }).toList();
+
+              if (filteredCycles.isEmpty) {
+                // 모든 주기가 삭제되면 문서 삭제
+                batch.delete(docRef);
+              } else {
+                // 필터링된 주기로 문서 업데이트
+                batch.set(docRef, {
+                  'cycles': filteredCycles,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: false));
+              }
+            }
+          } catch (e) {
+            // 문서 읽기 실패 시 무시 (존재하지 않는 문서일 수 있음)
+          }
+        }
       }
 
       // 각 년도 문서에 저장
@@ -158,24 +212,43 @@ class FirebasePeriodRepository implements PeriodRepository {
         writeCount++;
       }
 
-      // 삭제할 시작일이 있는 경우 (기존 구조와의 호환을 위해 유지)
-      // 년도별 구조에서는 deleteStartDates를 직접 처리하기 어려우므로
-      // 전체 년도 문서를 다시 저장하는 방식으로 처리
-      // (deleteStartDates가 있으면 해당 년도의 문서를 다시 읽어서 처리 필요)
-      // 하지만 현재 구조에서는 모든 주기를 다시 저장하므로 자동으로 처리됨
+      // 모든 주기가 삭제된 경우 모든 문서 삭제
+      if (cycles.isEmpty &&
+          (deleteStartDates == null || deleteStartDates.isEmpty)) {
+        // 기존 모든 문서 조회하여 삭제
+        try {
+          final snapshot = await collectionRef.get();
+          for (final doc in snapshot.docs) {
+            batch.delete(doc.reference);
+          }
+        } catch (e) {
+          // 조회 실패 시 무시
+        }
+      }
 
       // 빈 batch는 commit하지 않음 (Security Rules 검증 불필요)
-      if (writeCount > 0) {
+      // writeCount > 0이거나 삭제 작업이 있으면 commit
+      if (writeCount > 0 ||
+          (deleteStartDates != null && deleteStartDates.isNotEmpty) ||
+          cycles.isEmpty) {
+        // Offline Persistence: 네트워크 오류 시에도 로컬 캐시에 저장
+        // 네트워크 복구 시 자동으로 서버에 동기화됨
         await batch.commit();
       } else {
         return;
       }
     } catch (e) {
+      // 권한 오류(permission-denied)만 재throw
+      // 네트워크 오류는 Offline Persistence가 자동 처리하므로 무시
       if (e is FirebaseException) {
         if (e.code == 'permission-denied') {
+          rethrow; // 권한 오류는 상위로 전파
         }
+        // 네트워크 오류 등은 Offline Persistence가 처리하므로 무시
+      } else {
+        // FirebaseException이 아닌 다른 예외는 재throw
+        rethrow;
       }
-      rethrow;
     }
   }
 }

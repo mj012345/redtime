@@ -44,6 +44,8 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // Firestore Offline Persistence 활성화
+    await FirebaseService.initialize();
   } catch (e) {
     // 초기화 실패해도 앱은 실행 (FirebaseService.checkInitialized()에서 재시도)
   }
