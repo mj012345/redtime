@@ -36,16 +36,14 @@ class MyView extends StatelessWidget {
     );
 
     if (shouldSignOut == true && context.mounted) {
+      debugPrint('Logout confirmed, calling signOut()');
       await authViewModel.signOut();
-
-      // 로그아웃 완료 후 잠시 대기하여 완전히 로그아웃되었는지 확인
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // 로그아웃 완료 후 로그인 페이지로 이동
+      
       if (context.mounted) {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
+        // 모든 라우트를 제거하고 메인(home)으로 돌아가 기 때문에
+        // AuthViewModel 상태에 따른 declarative navigation이 다시 작동함
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (route) => false);
       }
     }
   }
@@ -94,13 +92,10 @@ class MyView extends StatelessWidget {
         }
 
         if (success) {
-          // 계정 삭제 성공 - 로그인 페이지로 이동
-          // context.mounted 확인 후 화면 이동
+          // 계정 삭제 성공 - 모든 라우트를 제거하고 메인으로 이동
           if (context.mounted) {
-            Navigator.of(
-              context,
-              rootNavigator: true,
-            ).pushNamedAndRemoveUntil('/login', (route) => false);
+            Navigator.of(context, rootNavigator: true)
+                .pushNamedAndRemoveUntil('/', (route) => false);
           }
         } else {
           // 계정 삭제 실패 - 에러 메시지 표시

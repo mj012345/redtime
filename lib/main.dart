@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +15,7 @@ import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/auth/login_view.dart';
 import 'package:red_time_app/view/auth/signup_complete_view.dart';
 import 'package:red_time_app/view/auth/terms_agreement_view.dart';
+import 'package:red_time_app/view/splash/splash_view.dart';
 import 'package:red_time_app/view/terms/terms_page_view.dart';
 import 'package:red_time_app/view/calendar/calendar_view.dart';
 import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
@@ -25,18 +25,15 @@ import 'package:red_time_app/view/report/report_view.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 전역 에러 핸들러 설정 (빨간 에러 화면 방지)
+  // 전역 에러 핸들러 설정
   FlutterError.onError = (FlutterErrorDetails details) {
-    // FlutterError.presentError()를 호출하지 않아 빨간 화면이 나타나지 않음
-    // release 모드에서도 작동하도록 처리
     if (kDebugMode) {
       FlutterError.presentError(details);
     }
   };
 
-  // 플랫폼 예외 핸들러
   PlatformDispatcher.instance.onError = (error, stack) {
-    return true; // 에러 처리됨
+    return true; 
   };
 
   // Firebase 초기화
@@ -44,10 +41,9 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    // Firestore Offline Persistence 활성화
     await FirebaseService.initialize();
   } catch (e) {
-    // 초기화 실패해도 앱은 실행 (FirebaseService.checkInitialized()에서 재시도)
+    // 초기화 실패해도 앱은 실행
   }
 
   runApp(const MyApp());
@@ -63,67 +59,31 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
         // 사용자 ID 기반으로 CalendarViewModel 생성
         ChangeNotifierProxyProvider<AuthViewModel, CalendarViewModel>(
-          create: (_) => CalendarViewModel(), // 초기 생성
+          create: (_) => CalendarViewModel(),
           update: (context, authVm, previous) {
-            final userId = authVm.currentUser?.uid;
-            final previousUserId = previous?.userId;
-
-            // 로그아웃 중인 경우 (userId가 null이고 이전에 userId가 있었던 경우)
-            // 또는 로그아웃 완료된 경우 (userId가 null이고 이전에도 null인 경우)
+            final currentUser = authVm.currentUser;
+            final userId = currentUser?.uid;
+            
+            // 로그인 안 된 경우 메모리 Repository 사용
             if (userId == null) {
-              // 로그인 안 된 경우 메모리 Repository 사용
-              // 이전 인스턴스가 있으면 dispose하고 새로 생성
-              if (previous != null && previous.userId != null) {}
               return CalendarViewModel();
             }
 
-            // 수동 로그인 vs 자동 로그인 구분
-            // 수동 로그인: 사용자가 명시적으로 로그인 버튼 클릭 → forceRefresh: true (서버에서 가져오기)
-            // 자동 로그인: 앱 재시작 시 Firebase Auth persistence로 세션 복원 → forceRefresh: false (캐시 사용)
-            final isNewLogin = authVm.isManualLogin;
+            // 단순화된 로직: userId가 바뀌면 무조건 새로 생성
+            // 단, previous가 있고 같은 userId라면 재사용
+            if (previous != null && previous.userId == userId) {
+              return previous;
+            }
 
-            // 사용자 ID가 변경되었거나, 새 로그인인 경우 새로운 인스턴스 생성
-            if (previousUserId != userId || isNewLogin) {
-              // Firebase Repository 사용
-              final periodRepo = FirebasePeriodRepository(userId);
-              final symptomRepo = FirebaseSymptomRepository(userId);
-
-              final viewModel = CalendarViewModel(
+            // 새로운 로그인 (또는 앱 시작)
+            final periodRepo = FirebasePeriodRepository(userId);
+            final symptomRepo = FirebaseSymptomRepository(userId);
+            
+            return CalendarViewModel(
                 periodRepository: periodRepo,
                 symptomRepository: symptomRepo,
-                isNewLogin: isNewLogin,
-              );
-
-              // 달력 화면 진입 시점에 사용자 데이터 동기화
-              // authStateChanges 리스너가 완료될 때까지 대기 후 동기화
-              Future.microtask(() async {
-                // authStateChanges 리스너가 userModel을 설정할 때까지 최대 3초 대기
-                final maxWaitTime = const Duration(seconds: 3);
-                final startTime = DateTime.now();
-
-                while (authVm.currentUser == null || authVm.userModel == null) {
-                  if (DateTime.now().difference(startTime) > maxWaitTime) {
-                    return;
-                  }
-                  await Future.delayed(const Duration(milliseconds: 100));
-                }
-                final syncSuccess = await authVm.syncUserDataToFirestore();
-                if (syncSuccess) {
-                } else {
-                  // 사용자 데이터 동기화 실패 (계속 진행)
-                }
-              });
-
-              // 수동 로그인 플래그 리셋 (한 번만 적용되도록)
-              if (isNewLogin) {
-                authVm.resetManualLoginFlag();
-              }
-
-              return viewModel;
-            } else {
-              // 동일 사용자이고 새 로그인이 아닌 경우 (앱 재시작 등), 기존 인스턴스 재사용
-              return previous!;
-            }
+                isNewLogin: true, 
+            );
           },
         ),
       ],
@@ -145,13 +105,25 @@ class MyApp extends StatelessWidget {
             bodySmall: AppTextStyles.caption,
           ),
         ),
-        // 에러 발생 시 빨간 화면 대신 에러 메시지 표시
         builder: (context, child) {
           Widget errorWidget = child ?? const SizedBox();
-          // 에러 발생 시 처리
           return MediaQuery(data: MediaQuery.of(context), child: errorWidget);
         },
-        home: const AuthWrapper(),
+        // State-Driven Navigation
+        home: Consumer<AuthViewModel>(
+          builder: (context, authVm, child) {
+            final state = authVm.state;
+            
+            return switch (state) {
+              AuthUninitialized() || AuthLoading() => const SplashView(), // 스플래시 화면 연결
+              Unauthenticated() => const LoginView(),
+              AuthError(message: final msg) => LoginView(errorMessage: msg),
+              Authenticated(isNewUser: final isNewUser) => isNewUser
+                  ? const TermsAgreementView() 
+                  : const FigmaCalendarPage(),
+            };
+          },
+        ),
         onGenerateRoute: (settings) {
           switch (settings.name) {
             case '/login':
@@ -179,147 +151,5 @@ class MyApp extends StatelessWidget {
         },
       ),
     );
-  }
-}
-
-/// 로그인 상태에 따라 화면 전환
-class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isValidating = true;
-  bool _isValidUser = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _validateUser();
-  }
-
-  /// 사용자 유효성 검증
-  Future<void> _validateUser() async {
-    // Firebase 초기화 확인
-    if (!FirebaseService.checkInitialized()) {
-      setState(() {
-        _isValidating = false;
-        _isValidUser = false;
-      });
-      return;
-    }
-
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        try {
-          // 사용자 정보 갱신 (Firebase에서 삭제되었는지 확인)
-          // 타임아웃 추가하여 무한 대기 방지
-          await user.reload().timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {},
-          );
-
-          // 갱신된 사용자 정보 가져오기
-          final updatedUser = FirebaseAuth.instance.currentUser;
-          if (updatedUser == null) {
-            await FirebaseAuth.instance.signOut();
-            setState(() {
-              _isValidating = false;
-              _isValidUser = false;
-            });
-            return;
-          }
-
-          // 토큰 유효성 확인 (타임아웃 추가)
-          try {
-            await updatedUser
-                .getIdToken(true)
-                .timeout(
-                  const Duration(seconds: 5),
-                  onTimeout: () {
-                    throw TimeoutException('토큰 갱신 타임아웃');
-                  },
-                );
-            setState(() {
-              _isValidating = false;
-              _isValidUser = true;
-            });
-          } catch (e) {
-            await FirebaseAuth.instance.signOut();
-            setState(() {
-              _isValidating = false;
-              _isValidUser = false;
-            });
-          }
-        } catch (e) {
-          // 에러 발생 시 로그아웃 처리
-          try {
-            await FirebaseAuth.instance.signOut();
-          } catch (_) {}
-          setState(() {
-            _isValidating = false;
-            _isValidUser = false;
-          });
-        }
-      } else {
-        setState(() {
-          _isValidating = false;
-          _isValidUser = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isValidating = false;
-        _isValidUser = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 검증 중
-    if (_isValidating) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    // 검증 완료 후 화면 전환
-    if (_isValidUser) {
-      return StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // 스트림이 아직 데이터를 기다리는 중이면 로딩 화면 표시
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          // 에러 발생 시 로그인 화면으로 이동
-          if (snapshot.hasError) {
-            return const LoginView();
-          }
-
-          // 스트림이 활성 상태이고 데이터가 있는 경우
-          if (snapshot.connectionState == ConnectionState.active) {
-            if (snapshot.hasData && snapshot.data != null) {
-              // 로그인된 사용자는 달력 화면으로 (약관 동의는 로그인 후 처리)
-              return const FigmaCalendarPage();
-            } else {
-              return const LoginView();
-            }
-          }
-
-          // 기타 상태 (done 등) - 기본적으로 로딩 화면 표시
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
-      );
-    } else {
-      return const LoginView();
-    }
   }
 }

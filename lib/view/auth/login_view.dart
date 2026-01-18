@@ -1,14 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
+import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/auth/widgets/social_login_button.dart';
 
 /// 구글 로그인 화면
-class LoginView extends StatelessWidget {
-  const LoginView({super.key});
+class LoginView extends StatefulWidget {
+  final String? errorMessage;
+  const LoginView({super.key, this.errorMessage});
+
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(widget.errorMessage!)),
+        );
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LoginView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.errorMessage != null && widget.errorMessage != oldWidget.errorMessage) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(widget.errorMessage!)),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final authVm = Provider.of<AuthViewModel>(context);
+    // 상태가 로딩 중인지 확인 (AuthLoading 상태이거나 수동 로그인 로딩)
+    final isLoading = authVm.state is AuthLoading || authVm.isManualLoading;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -76,10 +112,9 @@ class LoginView extends StatelessWidget {
                       ),
                     ),
                     onPressed: () {
-                      // Google 로그인 버튼 클릭 시 약관 동의 화면으로 이동
-                      Navigator.of(context).pushReplacementNamed('/terms');
+                      authVm.signInWithGoogle();
                     },
-                    isLoading: false,
+                    isLoading: isLoading,
                     backgroundColor: Colors.white,
                     borderColor: const Color(0xFFE0E0E0),
                     textColor: const Color(0xFF3D3A3A),

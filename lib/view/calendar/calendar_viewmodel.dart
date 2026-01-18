@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/models/symptom_category.dart';
 import 'package:red_time_app/repositories/period_repository.dart';
 import 'package:red_time_app/repositories/symptom_repository.dart';
 import 'package:red_time_app/services/calendar_service.dart';
 
-class CalendarViewModel extends ChangeNotifier {
+class CalendarViewModel extends ChangeNotifier with WidgetsBindingObserver {
   final String? userId; // 사용자 ID 저장 (Repository 타입 확인용)
 
   // 디바운싱 타이머 (1.5초 지연)
@@ -29,36 +28,45 @@ class CalendarViewModel extends ChangeNotifier {
        _isNewLogin = isNewLogin {
     // 비동기 초기화를 지연시켜 앱 시작을 블로킹하지 않도록 함
     Future.microtask(() => _initialize(forceRefresh: _isNewLogin));
+    WidgetsBinding.instance.addObserver(this);
   }
 
   final bool _isNewLogin;
 
   @override
   void dispose() {
-    // 디바운싱 대기 중인 저장 작업 처리
-    for (final timer in _symptomSaveTimers.values) {
-      timer.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _flushPendingSaves();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 앱이 백그라운드로 가거나 종료될 때 대기 중인 저장 작업 즉시 수행
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _flushPendingSaves();
+    }
+  }
+
+  /// 대기 중인 모든 저장 작업을 즉시 수행
+  void _flushPendingSaves() {
+    // 증상 저장 Flush
+    for (final dateKey in _symptomSaveTimers.keys) {
+      _symptomSaveTimers[dateKey]?.cancel();
+      final symptoms = _symptomSelections[dateKey];
+      if (symptoms != null) { // 삭제된 경우 null일 수 있음 (여기서는 remove하지 않으므로 체크)
+         // 빈 set이라도 저장이 필요하면 저장 (symptomsSelections에 있다는 것은 의미가 있음)
+        _symptomRepo.saveSymptomForDate(dateKey, symptoms);
+      }
     }
     _symptomSaveTimers.clear();
 
-    // 로그인 상태 확인 (로그아웃 시 저장 불필요)
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
-
-    if (isLoggedIn) {
-      // 대기 중인 모든 증상 저장 즉시 수행
-      for (final entry in _symptomSelections.entries) {
-        if (entry.value.isNotEmpty) {
-          _symptomRepo.saveSymptomForDate(entry.key, entry.value);
-        }
-      }
-      _periodSaveTimer?.cancel();
+    // 주기 저장 Flush
+    if (_periodSaveTimer != null) {
+      _periodSaveTimer!.cancel();
+      _periodSaveTimer = null;
       _performPeriodSave();
-    } else {
-      // 로그아웃 상태면 타이머만 취소 (저장 시도하지 않음)
-      _periodSaveTimer?.cancel();
     }
-
-    super.dispose();
   }
 
   /// 비동기 초기화 (Firebase Repository 사용 시)

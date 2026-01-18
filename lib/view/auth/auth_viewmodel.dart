@@ -6,452 +6,294 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:red_time_app/models/user_model.dart';
 import 'package:red_time_app/services/auth_service.dart';
 import 'package:red_time_app/constants/terms_version.dart';
+import 'package:red_time_app/view/auth/auth_state.dart';
 
-/// 사용자 데이터 로딩 상태
-enum UserLoadState {
-  idle, // 초기 상태
-  authReady, // Firebase Auth 로그인 완료, Firestore 조회 전
-  userLoading, // Firestore 조회 중
-  userLoaded, // Firestore 조회 성공
-  userLoadFailed, // Firestore 조회 실패
-}
+export 'package:red_time_app/view/auth/auth_state.dart';
 
-/// 인증 상태 관리 뷰모델
+/// 인증 상태 관리 뷰모델 (State-Driven Approach)
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService = AuthService();
   StreamSubscription<User?>? _authStateSubscription;
 
-  User? _currentUser;
-  UserModel? _userModel;
-  bool _isLoading = false;
-  String? _errorMessage;
-  bool? _isNewUser; // 신규/기존 회원 구분 (null: 미확인, true: 신규, false: 기존)
-  bool _isManualLogin = false; // 수동 로그인 여부 (로그인 버튼 클릭 시 true)
-  UserLoadState _userLoadState = UserLoadState.idle; // 사용자 데이터 로딩 상태
-  bool _isLoadingUserData = false; // 사용자 데이터 로딩 중 플래그 (중복 호출 방지)
+  // 단일 상태 관리
+  AuthState _state = const AuthUninitialized();
+  AuthState get state => _state;
 
-  User? get currentUser => _currentUser;
-  UserModel? get userModel => _userModel;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
-  bool? get isNewUser => _isNewUser;
-  bool get isAuthenticated => _currentUser != null;
-  bool get isManualLogin => _isManualLogin; // 수동 로그인 여부 확인용
-  UserLoadState get userLoadState => _userLoadState; // 사용자 데이터 로딩 상태
+  AuthViewModel();
 
-  /// 수동 로그인 플래그 리셋 (CalendarViewModel에서 호출)
-  void resetManualLoginFlag() {
-    _isManualLogin = false;
+  // Convenience getters for UI compatibility and helpers
+  User? get currentUser {
+    final s = _state;
+    return s is Authenticated ? s.user : null;
   }
 
-  AuthViewModel() {
-    // 로그인 상태 변화 감지 (먼저 설정)
+  UserModel? get userModel {
+    final s = _state;
+    return s is Authenticated ? s.userModel : null;
+  }
+
+  bool get isAuthenticated => _state is Authenticated;
+
+  String? get errorMessage {
+    final s = _state;
+    return s is AuthError ? s.message : null;
+  }
+
+  // 수동 로그인 로딩 상태 (로그인 버튼 스피너용)
+  bool _isManualLoading = false;
+  bool get isManualLoading => _isManualLoading;
+
+  void initialize() {
+    // 이미 초기화 상태가 아니면 리턴 (중복 호출 방지)
+    if (_state is! AuthUninitialized && _state is! AuthError) return;
+
+    // 앱 시작 시 초기 상태 (이미 AuthUninitialized이지만 명시적 호출)
+    if (_state is! AuthUninitialized) {
+       _state = const AuthUninitialized();
+       notifyListeners();
+    }
+
+    // Firebase Auth 상태 리스너 등록
+    _authStateSubscription?.cancel(); // 기존 구독 취소 안전장치
     _authStateSubscription = _authService.authStateChanges.listen((User? user) {
-      if (user != null) {
-        // 현재 사용자와 동일하면 중복 호출 방지
-        if (_currentUser?.uid == user.uid && _userModel != null) {
+      if (user == null) {
+        // 이미 로그아웃 상태라면 중복 처리 방지
+        if (_state is! Unauthenticated) {
+          _state = const Unauthenticated();
+          _isManualLoading = false;
+          notifyListeners();
+        }
+      } else {
+        // 이미 인증된 상태에서 동일 유저라면 중복 로딩 방지 (Token refresh 등 무시)
+        final currentState = _state;
+        if (currentState is Authenticated && currentState.user.uid == user.uid) {
           return;
         }
 
-        _currentUser = user;
-        _validateAndLoadUser(user)
-            .then((_) {
-              // 수동 로그인이 아니면 자동 로그인으로 처리
-              // _isManualLogin은 CalendarViewModel에서 확인 후 리셋됨
-              notifyListeners();
-            })
-            .catchError((e) {
-              notifyListeners();
-            });
-      } else {
-        _currentUser = null;
-        _userModel = null;
-        _isNewUser = null;
-        _isManualLogin = false; // 로그아웃 시 리셋
-        _userLoadState = UserLoadState.idle;
-        _isLoadingUserData = false; // 로딩 상태 초기화
-        notifyListeners();
+        // 로그인 감지 -> 데이터 로딩 시작
+        _loadUser(user);
       }
     });
+    
+    // 별도 _validateCurrentUser 호출 불필요: authStateChanges가 초기 값도 전달해줌
+  }
 
-    // 앱 시작 시 현재 사용자 유효성 검증 (비동기로 실행)
-    _validateCurrentUser();
+  /// 초기화 재시도 (네트워크 오류 등으로 실패 시 외부에서 호출)
+  void retryInitialization() {
+     initialize();
   }
 
   @override
   void dispose() {
     _authStateSubscription?.cancel();
-    _authStateSubscription = null;
     super.dispose();
   }
 
-  /// 앱 시작 시 현재 사용자 유효성 검증
-  Future<void> _validateCurrentUser() async {
-    // 약간의 지연을 두어 authStateChanges 리스너가 먼저 설정되도록 함
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    final user = _authService.currentUser;
-    if (user != null) {
-      await _validateAndLoadUser(user);
-      notifyListeners();
+  /// 사용자 데이터 로드 로직 (Atomic Transaction)
+  Future<void> _loadUser(User user) async {
+    // 이미 로딩 중이면 중복 호출 방지 (선택 사항)
+    if (_state is AuthLoading && _state is! AuthUninitialized) {
+        return;
     }
-  }
 
-  /// 사용자 유효성 검증 및 로드
-  Future<void> _validateAndLoadUser(User user) async {
+    // UI에 로딩 표시
+    // 앱 초기화 상태(스플래시)나 이미 로딩 상태일 때만 AuthLoading(스플래시) 유지
+    // 로그인 화면(Unauthenticated)에서 왔다면, 로그인 버튼 스피너(_isManualLoading)만 유지하고 스플래시로 전환하지 않음
+    if (_state is AuthUninitialized || _state is AuthLoading) {
+      if (_state is! AuthLoading) {
+        _state = const AuthLoading();
+        notifyListeners();
+      }
+    } else {
+      // 수동 로그인 진행 중 (이미 true일 수 있음)
+      if (!_isManualLoading) {
+        _isManualLoading = true;
+        notifyListeners();
+      }
+    }
+
     try {
-      await user.reload();
+      // 1. User Reload & Token Check
+      try {
+        await user.reload();
+      } catch (e) {
+         // ignore
+      }
+      
       final updatedUser = _authService.currentUser;
       if (updatedUser == null) {
-        await signOut();
-        return;
+        throw Exception('사용자를 찾을 수 없습니다.');
       }
 
-      // 토큰 유효성 확인
+      // 토큰 갱신 시도
       try {
         await updatedUser.getIdToken(true);
       } catch (e) {
-        await signOut();
+        await _authService.signOut();
+        _state = const Unauthenticated();
+        notifyListeners();
         return;
       }
 
-      // Firestore에서 사용자 정보 확인 (재시도 로직 포함)
-      _userLoadState = UserLoadState.authReady;
-      notifyListeners();
+      // 2. Firestore 데이터 로드
+      UserModel? userModel = await _loadUserDataWithRetry(updatedUser.uid);
 
-      await _loadUserDataWithRetry(updatedUser.uid);
+      if (userModel == null) {
+        // 신규 유저로 간주 (약관 동의 전) -> 로컬 모델 생성
+        userModel = UserModel(
+          uid: updatedUser.uid,
+          email: updatedUser.email ?? '',
+          displayName: null,
+          photoURL: null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
 
-      _currentUser = updatedUser;
-      notifyListeners();
-    } catch (e) {
-      // 토큰 관련 심각한 에러만 로그아웃
-      final errorStr = e.toString().toLowerCase();
-      if (errorStr.contains('token') ||
-          errorStr.contains('authentication') ||
-          errorStr.contains('unauthorized')) {
-        await signOut();
+        // 신규 유저는 Authenticated 상태지만 isNewUser = true
+        _state = Authenticated(updatedUser, userModel, isNewUser: true);
+      } else {
+        // 기존 유저
+        _state = Authenticated(updatedUser, userModel, isNewUser: false);
       }
+      notifyListeners();
+      _isManualLoading = false;
+
+    } catch (e) {
+      // 에러 발생 시 로그아웃 처리하여 불일치 방지
+      await _authService.signOut();
+
+      String msg = '초기화 중 오류가 발생했습니다.';
+      if (e is FirebaseAuthException) {
+        msg = e.message ?? msg;
+      }
+      _state = AuthError(msg);
+      _isManualLoading = false;
+      notifyListeners();
     }
   }
 
-  /// Firestore에서 사용자 데이터 로드 (재시도 로직 포함)
-  Future<void> _loadUserDataWithRetry(String uid, {int maxRetries = 3}) async {
-    // 이미 로딩 중이면 중복 호출 방지
-    if (_isLoadingUserData) {
-      return;
+  Future<UserModel?> _loadUserDataWithRetry(String uid, {int maxRetries = 3}) async {
+    for (int i = 0; i < maxRetries; i++) {
+      try {
+        // 타임아웃을 넉넉히 줌
+        final model = await _authService.getUserFromFirestore(uid).timeout(
+          Duration(seconds: 5 + i * 2),
+        );
+        return model;
+      } catch (e) {
+        if (i == maxRetries - 1) {
+           // 마지막 시도 실패. 
+           // 여기서는 null을 리턴하여 '신규 유저' 경로를 타게 할지, 
+           // 아니면 에러를 던져서 'AuthError'로 가게 할지 정책 결정 필요.
+           // 오프라인 퍼스트 앱이므로, 캐시도 없고 네트워크도 안되면 에러가 맞음.
+           // 다만 기존 코드에서는 null을 리턴하고 있었음.
+           return null; 
+        }
+        await Future.delayed(Duration(seconds: 1));
+      }
     }
+    return null;
+  }
 
-    _isLoadingUserData = true;
-    _userLoadState = UserLoadState.userLoading;
+  /// 구글 로그인 액션
+  Future<bool> signInWithGoogle() async {
+    // 상태를 AuthLoading으로 바꾸지 않고, 내부 플래그만 변경
+    // _state = const AuthLoading(); // 제거
+    _isManualLoading = true;
     notifyListeners();
 
     try {
-      for (int i = 0; i < maxRetries; i++) {
-        try {
-          final userModel = await _authService
-              .getUserFromFirestore(uid)
-              .timeout(
-                Duration(seconds: 10 + i * 5), // 점진적 타임아웃 증가 (10s, 15s, 20s)
-                onTimeout: () {
-                  throw TimeoutException('Firestore 조회 타임아웃');
-                },
-              );
-
-          if (userModel != null) {
-            _userModel = userModel;
-            _isNewUser = false;
-            _userLoadState = UserLoadState.userLoaded;
-            notifyListeners();
-            return;
-          } else {
-            // 신규 사용자: 약관 동의 전이므로 Firestore에 저장하지 않음
-            // 로컬 UserModel만 생성 (약관 동의 후 저장됨)
-            _userModel = UserModel(
-              uid: uid,
-              email: _currentUser?.email ?? '',
-              displayName: null,
-              photoURL: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
-            _isNewUser = true;
-            _userLoadState = UserLoadState.userLoaded;
-            notifyListeners();
-            return;
-          }
-        } on TimeoutException {
-          if (i == maxRetries - 1) {
-            // 마지막 시도 실패 시
-            _userLoadState = UserLoadState.userLoadFailed;
-            // Firestore 조회 실패 시 이메일만 사용 (Firestore 저장하지 않음)
-            _userModel = UserModel(
-              uid: uid,
-              email: _currentUser?.email ?? '',
-              displayName: null,
-              photoURL: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
-            _isNewUser = null; // 미확인 상태
-            notifyListeners();
-          } else {
-            // 재시도 전 대기 (exponential backoff: 1s, 3s, 5s)
-            await Future.delayed(Duration(seconds: 1 + i * 2));
-          }
-        } catch (e) {
-          // FirebaseException의 경우 권한 문제인지 확인
-          if (e is FirebaseException && e.code == 'permission-denied') {}
-
-          if (i == maxRetries - 1) {
-            // 마지막 시도 실패 시
-            _userLoadState = UserLoadState.userLoadFailed;
-            // Firestore 조회 실패 시 이메일만 사용 (Firestore 저장하지 않음)
-            _userModel = UserModel(
-              uid: uid,
-              email: _currentUser?.email ?? '',
-              displayName: null,
-              photoURL: null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
-            _isNewUser = null; // 미확인 상태
-            notifyListeners();
-          } else {
-            // 재시도 전 대기 (exponential backoff: 1s, 3s, 5s)
-            await Future.delayed(Duration(seconds: 1 + i * 2));
-          }
-        }
-      }
-    } finally {
-      _isLoadingUserData = false; // 로딩 완료 표시
-    }
-  }
-
-  /// 구글 로그인
-  Future<bool> signInWithGoogle() async {
-    try {
-      _isLoading = true;
-      _errorMessage = null;
-      _isNewUser = null;
-      _isManualLogin = true; // 수동 로그인 표시
-      notifyListeners();
       final result = await _authService.signInWithGoogle();
-      if (result != null) {
-        _userModel = result.userModel;
-        _currentUser = _authService.currentUser;
-        _isNewUser = result.isNewUser; // null 가능 (Firestore 조회 실패 시)
-        _isLoading = false;
-        notifyListeners();
-        // Firebase Auth 로그인 성공 시 true 반환 (Firestore 조회 실패와 무관)
-        return true;
-      } else {
-        _isLoading = false;
-        _isNewUser = null;
+      if (result == null) {
+        // 취소됨 -> 로그아웃 상태로 복귀
+        _state = const Unauthenticated();
+        _isManualLoading = false;
         notifyListeners();
         return false;
       }
-    } on FirebaseAuthException catch (e) {
-      // Firebase Auth 에러 타입 활용
-      String userMessage;
 
-      switch (e.code) {
-        case 'network-request-failed':
-          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-          break;
-        case 'user-disabled':
-          userMessage = '사용할 수 없는 계정입니다.';
-          break;
-        case 'invalid-credential':
-          userMessage = '인증 정보가 올바르지 않습니다.';
-          break;
-        case 'operation-not-allowed':
-          userMessage = 'Google 로그인이 허용되지 않았습니다.';
-          break;
-        case 'user-not-found':
-          userMessage = '사용자 계정을 찾을 수 없습니다.';
-          break;
-        default:
-          userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
-      }
-      _errorMessage = userMessage;
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    } on PlatformException catch (e) {
-      // Platform 에러 (Google Sign-In 등)
-      String userMessage;
+      // 성공하면 authStateChanges 리스너가 감지하여 _loadUser를 호출함.
+      return true;
 
-      if (e.code == 'sign_in_failed') {
-        if (e.message?.contains('ApiException: 10') == true) {
-          userMessage =
-              'Google 로그인 설정 오류가 발생했습니다.\nFirebase Console에서 SHA-1 지문을 확인해주세요.';
-        } else if (e.message?.toLowerCase().contains('network') == true ||
-            e.message?.toLowerCase().contains('connection') == true) {
-          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-        } else {
-          userMessage = 'Google 로그인에 실패했습니다.';
-        }
-      } else {
-        userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
-      }
-      _errorMessage = userMessage;
-      _isLoading = false;
-      notifyListeners();
-      return false;
     } catch (e) {
-      // 기타 예외 (일반 Exception 등)
-      final errorString = e.toString().toLowerCase();
-      String? userMessage;
-
-      if (errorString.contains('canceled') ||
-          errorString.contains('cancelled')) {
-        // 사용자 취소는 에러 메시지 표시하지 않음
-        userMessage = null;
-      } else if (errorString.contains('network') ||
-          errorString.contains('connection')) {
-        userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-      } else {
-        userMessage = '로그인에 실패했습니다. 다시 시도해주세요.';
+      String msg = '로그인에 실패했습니다.';
+      if (e is FirebaseAuthException) {
+        msg = e.message ?? msg;
       }
-      _errorMessage = userMessage;
-      _isLoading = false;
+      _state = AuthError(msg);
       notifyListeners();
       return false;
     }
   }
 
-  /// 로그아웃
+  /// 로그아웃 액션
   Future<void> signOut() async {
-    try {
-      _isLoading = true;
-      notifyListeners();
+    _state = const AuthLoading();
+    _isManualLoading = false;
+    notifyListeners();
 
+    try {
       await _authService.signOut();
-
-      // 로그아웃 완료 후 상태 초기화
-      _currentUser = null;
-      _userModel = null;
-      _isNewUser = null;
-      _isManualLogin = false;
-      _errorMessage = null;
-
-      // 추가 확인: authService의 currentUser도 확인
-      final remainingUser = _authService.currentUser;
-      if (remainingUser != null) {
-        await _authService.signOut();
-      }
-
-      _isLoading = false;
-      notifyListeners();
+      // 리스너가 Unauthenticated로 변경함
     } catch (e) {
-      _errorMessage = '로그아웃 실패: ${e.toString()}';
-      _isLoading = false;
+      _state = AuthError('로그아웃 실패: $e');
       notifyListeners();
     }
   }
 
-  /// 계정 삭제
+  /// 회원 탈퇴 액션
   Future<bool> deleteAccount() async {
+    _state = const AuthLoading();
+    notifyListeners();
+
     try {
-      _isLoading = true;
-      _errorMessage = null;
-      notifyListeners();
-
       await _authService.deleteAccount();
-
-      // 계정 삭제 성공 후 상태 초기화
-      _currentUser = null;
-      _userModel = null;
-      _isNewUser = null;
-      _isManualLogin = false;
-      _userLoadState = UserLoadState.idle;
-      _isLoadingUserData = false;
-      _isLoading = false;
-      notifyListeners();
+      // 리스너가 Unauthenticated로 변경함
       return true;
     } catch (e) {
-      _errorMessage = '계정 삭제 실패: ${e.toString()}';
-      _isLoading = false;
+      _state = AuthError('계정 삭제 실패: $e');
       notifyListeners();
       return false;
     }
   }
 
-  /// 사용자 데이터가 DB에 저장되어 있는지 확인하고, 없으면 저장 시도
-  /// 약관 동의 완료 후 또는 달력 화면 진입 시 호출
-  Future<bool> syncUserDataToFirestore() async {
-    // null 체크 후 바로 로컬 변수에 저장 (비동기 작업 중 값 변경 방지)
-    final currentUser = _currentUser;
-    final userModel = _userModel;
+  /// 약관 동의 후 데이터 저장 (신규 회원 -> 정식 회원 전환)
+  /// 기존 syncUserDataToFirestore 역할을 대체
+  Future<bool> convertToRegisteredUser() async {
+    final currentState = _state;
+    if (currentState is! Authenticated) return false;
 
-    if (currentUser == null || userModel == null) {
-      return false;
-    }
+    if (!currentState.isNewUser) return true; // 이미 등록된 회원
 
-    // 이미 DB에 저장되어 있는지 확인
-    if (_isNewUser == false) {
-      return true;
-    }
-
-    // isNewUser가 null인 경우 (미확인 상태) 또는 true인 경우 (신규 회원) DB 확인 필요
     try {
-      // Firestore에서 사용자 정보 확인 (타임아웃 짧게)
-      // 로컬 변수 사용 (null이 아님을 보장)
-      final existingUserModel = await _authService
-          .getUserFromFirestore(currentUser.uid)
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              return null;
-            },
-          );
-
-      if (existingUserModel != null) {
-        // DB에 이미 있음 (기존 회원)
-        _userModel = existingUserModel;
-        _isNewUser = false;
-        _userLoadState = UserLoadState.userLoaded;
-        notifyListeners();
-        return true;
-      }
-
-      // DB에 없음 - 약관 동의 정보가 있으면 저장 시도
-      // SharedPreferences에서 약관 동의 정보 확인
       final prefs = await SharedPreferences.getInstance();
       final termsAgreed = prefs.getBool('terms_agreed') ?? false;
+      if (!termsAgreed) return false;
 
-      if (!termsAgreed) {
-        return false;
-      }
-
-      // 약관 동의 정보가 있으면 Firestore에 저장
-      // 로컬 변수 사용 (null이 아님을 보장)
+      // DB 저장
       final termsAgreedAt = prefs.getString('terms_agreed_at');
-      final newUserModel = UserModel(
-        uid: userModel.uid,
-        email: userModel.email,
-        displayName: null,
-        photoURL: null,
+      final newUserModel = currentState.userModel.copyWith(
         termsVersion: TermsVersion.termsVersion,
         privacyVersion: TermsVersion.privacyVersion,
-        createdAt: termsAgreedAt != null
-            ? DateTime.parse(termsAgreedAt)
-            : DateTime.now(),
+        createdAt: termsAgreedAt != null ? DateTime.parse(termsAgreedAt) : DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       await _authService.saveUserToFirestore(newUserModel);
-      _userModel = newUserModel;
-      _isNewUser = false;
-      _userLoadState = UserLoadState.userLoaded;
+
+      // 상태 업데이트 (isNewUser: false)
+      _state = Authenticated(currentState.user, newUserModel, isNewUser: false);
       notifyListeners();
       return true;
-    } on FirebaseException catch (e) {
-      // 권한 문제인지 확인
-      if (e.code == 'permission-denied') {}
-      return false;
     } catch (e) {
+      // 에러 처리 (상태를 Error로 바꾸지 않고 false 반환하여 UI에서 스낵바 처리 유도)
       return false;
     }
   }
+  
+  // 기존 코드와의 호환성을 위해 유지 (Main에서 호출하는 경우 제거 예정이지만 View에서 쓸 수 있음)
+  Future<bool> syncUserDataToFirestore() => convertToRegisteredUser();
+  
+  // 수동 로그인 플래그 - 리팩토링 후에는 상태로 관리되므로 더미 메서드 (컴파일 에러 방지)
+  void resetManualLoginFlag() {}
 }

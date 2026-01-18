@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:red_time_app/constants/terms_version.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
-import 'package:red_time_app/services/auth_service.dart';
-import 'package:red_time_app/models/user_model.dart';
+import 'package:red_time_app/view/auth/auth_viewmodel.dart';
+import 'package:red_time_app/view/terms/terms_page_view.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/terms/terms_page_view.dart';
 
@@ -27,7 +24,7 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
 
   /// 뒤로가기: 로그인 화면으로 이동
   void _handleBack() {
-    Navigator.of(context).pushReplacementNamed('/login');
+    context.read<AuthViewModel>().signOut();
   }
 
   @override
@@ -212,7 +209,9 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
     });
 
     try {
-      // 1. 약관 동의 정보 저장
+      final authViewModel = context.read<AuthViewModel>();
+
+      // 1. 약관 동의 내용 로컬 저장 (선택 사항, 캐시용)
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('terms_agreed', true);
@@ -220,287 +219,43 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
           'terms_agreed_at',
           DateTime.now().toIso8601String(),
         );
-      } catch (e) {
-        // SharedPreferences 저장 실패는 치명적이지 않으므로 계속 진행
-      }
+      } catch (_) {}
 
-      // 2. Google 로그인 진행 (AuthViewModel을 통해 로그인하여 수동 로그인 플래그 설정)
+      // 2. ViewModel을 통해 정회원 전환 (DB 저장 및 상태 업데이트)
+      // 이미 구글 로그인이 완료된 상태이므로 다시 로그인할 필요 없음
+      final success = await authViewModel.convertToRegisteredUser();
+
       if (!context.mounted) return;
-      final authViewModel = context.read<AuthViewModel>();
-      final authService = AuthService();
 
-      // AuthViewModel의 signInWithGoogle을 호출하여 수동 로그인 플래그 설정
-      // signInWithGoogle() 완료를 기다림
-      final loginFuture = authViewModel.signInWithGoogle();
-      bool loginSuccess = false;
+      setState(() {
+        _isLoading = false;
+      });
 
-      try {
-        // signInWithGoogle() 완료 대기 (최대 120초 - Firestore 조회 시간 고려)
-        loginSuccess = await loginFuture.timeout(
-          const Duration(seconds: 120),
-          onTimeout: () {
-            // 타임아웃 발생 시에도 Firebase Auth에 사용자가 있으면 로그인 성공으로 간주
-            final firebaseUser = FirebaseAuth.instance.currentUser;
-            if (firebaseUser != null) {
-              return true;
-            }
-            // 타임아웃 발생했지만 사용자가 아직 없으면, authStateChanges를 기다림
-            return false; // false 반환 후 아래에서 authStateChanges 확인
-          },
+      if (success) {
+        // 성공 시 회원가입 완료 화면으로 이동
+        // main.dart의 switch문이 상태 변경을 감지하여 자동으로 화면을 바꿀 수도 있지만,
+        // 완료 화면을 보여주고 싶다면 명시적 네비게이션이 필요함.
+        // 여기서는 완료 화면으로 이동.
+        Navigator.of(context).pushReplacementNamed('/signup-complete');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('회원가입 처리에 실패했습니다. 다시 시도해주세요.'),
+            backgroundColor: Colors.red,
+          ),
         );
-      } catch (e) {
-        // 에러 발생 시에도 Firebase Auth에 사용자가 있으면 로그인 성공으로 간주
-        final firebaseUser = FirebaseAuth.instance.currentUser;
-        if (firebaseUser != null) {
-          loginSuccess = true;
-        } else {
-          loginSuccess = false;
-        }
-      }
-
-      // 타임아웃이나 에러로 loginSuccess가 false인 경우, authStateChanges를 기다려서 실제 로그인 확인
-      if (!loginSuccess) {
-        // authStateChanges 스트림을 최대 10초까지 기다림
-        try {
-          final userFuture = FirebaseAuth.instance
-              .authStateChanges()
-              .where((user) => user != null) // 사용자가 로그인될 때까지 대기
-              .first;
-
-          final timeoutFuture = Future<User?>.delayed(
-            const Duration(seconds: 10),
-            () {
-              return null;
-            },
-          );
-
-          final user = await Future.any([userFuture, timeoutFuture]);
-
-          if (user != null) {
-            loginSuccess = true;
-          } else {
-            loginSuccess = false;
-          }
-        } catch (e) {
-          // 최종 확인: FirebaseAuth.instance.currentUser 체크
-          final firebaseUser = FirebaseAuth.instance.currentUser;
-          if (firebaseUser != null) {
-            loginSuccess = true;
-          } else {
-            loginSuccess = false;
-          }
-        }
-      }
-
-      // signInWithGoogle()이 완료되었지만, authStateChanges 리스너가 userModel을 설정할 때까지 대기
-      if (loginSuccess) {
-        // 최대 5초까지 userModel과 isNewUser가 설정될 때까지 대기
-        final maxWaitTime = const Duration(seconds: 5);
-        final startTime = DateTime.now();
-
-        while (DateTime.now().difference(startTime) < maxWaitTime) {
-          await Future.delayed(const Duration(milliseconds: 200));
-
-          final firebaseUser = FirebaseAuth.instance.currentUser;
-          final viewModelUser = authViewModel.currentUser;
-          final isLoading = authViewModel.isLoading;
-          // FirebaseAuth에서 사용자가 확인되고, AuthViewModel의 로딩이 완료되었을 때
-          if (firebaseUser != null && viewModelUser != null && !isLoading) {
-            break;
-          }
-        }
-      }
-      if (!loginSuccess) {
-        // 로그인 실패
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          if (authViewModel.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(authViewModel.errorMessage!),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          // 로그인 실패 시 로그인 화면으로 돌아가기
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
-        return;
-      }
-
-      // 로그인 성공 - AuthViewModel에서 결과 가져오기
-      // authStateChanges 리스너가 userModel과 isNewUser를 설정할 때까지 대기
-      // 최대 3초까지 userModel과 isNewUser가 설정될 때까지 대기
-      UserModel? userModel;
-      bool? isNewUser;
-      final maxWaitTime = const Duration(seconds: 3);
-      final startTime = DateTime.now();
-
-      while (userModel == null || isNewUser == null) {
-        if (DateTime.now().difference(startTime) > maxWaitTime) {
-          break;
-        }
-
-        userModel = authViewModel.userModel;
-        isNewUser = authViewModel.isNewUser;
-
-        if (userModel != null && isNewUser != null) {
-          break;
-        }
-
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-
-      // userModel이 없으면 로그인 화면으로 복귀 (Firebase Auth 정보 필수)
-      if (userModel == null) {
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('로그인 정보를 가져오는데 실패했습니다.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
-        return;
-      }
-
-      // isNewUser가 null인 경우 (Firestore 조회 실패)
-      if (isNewUser == null) {
-        // Firestore 조회 실패 시 기존 회원으로 가정하고 달력 화면으로 이동
-        // 나중에 authStateChanges 리스너가 사용자 정보를 로드함
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          Navigator.of(context).pushReplacementNamed('/calendar');
-        }
-        return;
-      }
-
-      // 3. 신규/기존 회원 확인 및 처리
-      try {
-        if (isNewUser) {
-          // 신규 회원: Firestore에 사용자 정보 저장 (약관 버전 정보 포함)
-          final newUserModel = UserModel(
-            uid: userModel.uid,
-            email: userModel.email,
-            displayName: null,
-            photoURL: null,
-            termsVersion: TermsVersion.termsVersion,
-            privacyVersion: TermsVersion.privacyVersion,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-          await authService.saveUserToFirestore(newUserModel);
-          // 로딩 해제 후 화면 전환
-          if (context.mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-            // 신규 회원은 회원가입 완료 화면으로 이동
-            Navigator.of(context).pushReplacementNamed('/signup-complete');
-          } else {}
-        } else {
-          // 기존 회원도 동기화 확인 (DB에 실제로 저장되어 있는지)
-          final syncSuccess = await authViewModel.syncUserDataToFirestore();
-          if (!syncSuccess) {
-            // 사용자 데이터 동기화 실패 (계속 진행)
-          } else {}
-
-          // 기존 회원: 로딩 해제 후 화면 전환
-          if (context.mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-            // 기존 회원은 바로 달력 화면으로 이동
-            Navigator.of(context).pushReplacementNamed('/calendar');
-          } else {}
-        }
-      } on FirebaseException catch (e) {
-        // Firestore 에러 처리
-        String userMessage;
-
-        switch (e.code) {
-          case 'unavailable':
-          case 'deadline-exceeded':
-          case 'internal':
-            userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-            break;
-          case 'permission-denied':
-            userMessage = '저장 권한이 없습니다.';
-            break;
-          default:
-            userMessage = '회원가입에 실패했습니다. 다시 시도해주세요.';
-        }
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
-          );
-          // Firestore 저장 실패 시 로그인 화면으로 돌아가기
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
-      } on PlatformException catch (e) {
-        // Platform 에러 처리
-        String userMessage;
-
-        final errorMessage = e.message?.toLowerCase() ?? '';
-        if (errorMessage.contains('network') ||
-            errorMessage.contains('connection')) {
-          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-        } else {
-          userMessage = '회원가입에 실패했습니다. 다시 시도해주세요.';
-        }
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
-          );
-        }
-      } catch (e) {
-        // 기타 예외 처리
-        final errorString = e.toString().toLowerCase();
-        String userMessage;
-
-        if (errorString.contains('network') ||
-            errorString.contains('connection')) {
-          userMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
-        } else {
-          userMessage = '회원가입에 실패했습니다. 다시 시도해주세요.';
-        }
-        if (context.mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
-          );
-        }
       }
     } catch (e) {
-      // 전체 예외 처리 (예상치 못한 오류)
       if (context.mounted) {
         setState(() {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('오류가 발생했습니다. 다시 시도해주세요.'),
+          SnackBar(
+            content: Text('오류가 발생했습니다: $e'),
             backgroundColor: Colors.red,
           ),
         );
-        // 예상치 못한 오류 발생 시 로그인 화면으로 돌아가기
-        Navigator.of(context).pushReplacementNamed('/login');
       }
     }
   }
