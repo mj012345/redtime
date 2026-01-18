@@ -5,6 +5,7 @@ import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
+import 'package:red_time_app/view/splash/splash_view.dart';
 import 'package:red_time_app/widgets/bottom_nav.dart';
 import 'widgets/month_header.dart';
 import 'widgets/calendar_grid.dart';
@@ -167,9 +168,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
         builder: (context, vm, child) {
           // ViewModel이 초기화되지 않았을 경우 처리
           if (!vm.isInitialized) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const SplashView(showOnlyUI: true);
           }
 
           // 현재 페이지 인덱스와 ViewModel의 currentMonth 동기화 (무한 루프 방지)

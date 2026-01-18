@@ -6,8 +6,6 @@ import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/view/terms/terms_page_view.dart';
-import 'package:red_time_app/view/auth/auth_viewmodel.dart';
-import 'package:red_time_app/view/terms/terms_page_view.dart';
 
 class TermsAgreementView extends StatefulWidget {
   const TermsAgreementView({super.key});
