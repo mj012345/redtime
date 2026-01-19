@@ -172,6 +172,7 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
                       style: AppTextStyles.title.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     IconButton(
@@ -230,7 +231,7 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
               itemCount: 12,
               itemBuilder: (context, index) {
                 final month = index + 1;
-                final isSelected = month == selectedMonth;
+                final isSelected = month == widget.currentMonth.month && selectedYear == widget.currentMonth.year;
                 final isFuture = _isFutureMonth(selectedYear, month);
                 return GestureDetector(
                   onTap: () {
