@@ -215,7 +215,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
               ).isAfter(DateTime(today.year, today.month, today.day));
 
           return Scaffold(
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.surface,
             body: SafeArea(
               child: Column(
                 children: [
@@ -378,6 +378,17 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                       onPeriodEnd: vm.setPeriodEnd,
                                       isStartSelected: startSel,
                                       isEndSelected: endSel,
+                                      hasMemo: _hasMemo(vm, selectedDay),
+                                      hasRelationship: vm
+                                          .selectedSymptomsFor(selectedDay)
+                                          .contains('기타/관계'),
+                                      onMemoTap: () => _showMemoBottomSheet(
+                                        context,
+                                        vm,
+                                        selectedDay,
+                                      ),
+                                      onRelationshipTap: () =>
+                                          vm.toggleSymptom('기타/관계'),
                                     ),
                                     const SizedBox(height: AppSpacing.xl),
                                     Text(

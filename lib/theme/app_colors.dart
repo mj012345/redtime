@@ -4,12 +4,12 @@ class AppColors {
   const AppColors._();
 
   // 기본 팔레트
-  static const Color primary = Color(0xFFD32F2F);
-  static const Color primaryLight = Color(0xFFFFEBEE);
+  static const Color primary = Color(0xFFF35A4E);
+  static const Color primaryLight = Color(0xFFFFF4EA);
   static const Color secondary = Color(0xFF8D5656);
 
   // 배경/테두리
-  static const Color background = Color(0xFFFFFDFC);
+  static const Color background = Color(0xFFFBF9F5);
   static const Color surface = Colors.white;
   static const Color border = Color(0xFFEEEEEE);
   static const Color disabled = Color(0xFFFAFAFA);
@@ -27,8 +27,8 @@ class AppColors {
 class SymptomColors {
   const SymptomColors._();
 
-  static const Color period = Color(0xFFFFEBEE); // 생리일
-  static const Color fertile = Color(0xFFE8F5F6); // 가임기
+  static const Color period = Color(0xFFF7EEDB); // 생리일
+  static const Color fertile = Color(0xFFEDF1FA); // 가임기
   static const Color border = Color(0xFFE7E7E7); // 테두리
   static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상
   static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상

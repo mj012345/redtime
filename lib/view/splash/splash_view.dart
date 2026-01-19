@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/widgets/common_dialog.dart';
@@ -108,7 +109,7 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F5),
+      backgroundColor: AppColors.background,
       body: Center(
         child: FadeTransition(
           opacity: _opacityAnimation, // 2. Breathing (Opacity)

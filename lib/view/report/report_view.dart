@@ -389,7 +389,7 @@ class ReportView extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('리포트', style: AppTextStyles.title),
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),

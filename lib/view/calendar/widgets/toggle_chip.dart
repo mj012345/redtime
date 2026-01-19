@@ -18,33 +18,55 @@ class ToggleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillColor = selected ? AppColors.primary : AppColors.background;
-    final borderColor = selected ? AppColors.primary : AppColors.primary.withValues(alpha: 0.3);
+    final fillColor = selected ? AppColors.primary : AppColors.surface;
+    final borderColor = selected ? AppColors.primary : AppColors.primaryLight;
     final textColor = selected ? Colors.white : AppColors.textSecondary;
     final iconBg = selected ? Colors.white.withValues(alpha: 0.2) : AppColors.primaryLight;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 12),
         decoration: BoxDecoration(
           color: fillColor,
-          border: Border.all(color: borderColor),
-          borderRadius: BorderRadius.circular(50),
+          border: Border.all(color: borderColor, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-              child: Icon(icon, size: 16, color: textColor),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconBg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: textColor,
+              ),
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: textColor),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+                letterSpacing: -0.5,
+              ),
             ),
           ],
         ),

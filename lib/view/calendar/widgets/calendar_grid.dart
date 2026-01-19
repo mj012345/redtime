@@ -101,7 +101,7 @@ class CalendarGrid extends StatelessWidget {
                           child: DayCell(
                             date: day,
                             isOutsideMonth: day.month != month.month,
-                            onTap: () => onSelect(day),
+                            onTap: day.month != month.month ? () {} : () => onSelect(day),
                             isPeriod: _containsDate(periodDays, day),
                             isFertile: _containsDate(fertileWindowDays, day),
                             isOvulation: _containsDate([

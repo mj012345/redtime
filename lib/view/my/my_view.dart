@@ -117,7 +117,7 @@ class MyView extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MY'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         foregroundColor: const Color(0xFF333333),
         elevation: 0,
       ),
@@ -148,7 +148,7 @@ class MyView extends StatelessWidget {
                             borderRadius: BorderRadius.circular(
                               AppSpacing.radiusLg,
                             ),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(color: AppColors.primaryLight),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +263,7 @@ class MyView extends StatelessWidget {
           }
         },
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
     );
   }
 }

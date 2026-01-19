@@ -74,14 +74,14 @@ class DayCell extends StatelessWidget {
     Color? borderColor;
 
     if (showPeriod) {
-      bgColor = AppColors.primaryLight;
+      bgColor = SymptomColors.period;
       textColor = AppColors.textPrimary;
     } else if (showFertile) {
-      bgColor = const Color(0xFFE8F5F6);
+      bgColor = SymptomColors.fertile;
     } else if (showExpectedPeriod) {
-      bgColor = AppColors.primaryLight.withValues(alpha: 0.3);
+      bgColor = SymptomColors.period.withValues(alpha: 0.3);
     } else if (showExpectedFertile) {
-      bgColor = const Color(0xFFE8F5F6).withValues(alpha: 0.3);
+      bgColor = SymptomColors.fertile.withValues(alpha: 0.3);
     }
     if (showSelected) {
       // 오늘 이후 날짜는 회색 테두리, 그 외는 기본 primary 색상

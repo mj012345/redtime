@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart' hide Badge;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
@@ -17,6 +19,10 @@ class TodayCard extends StatelessWidget {
   final VoidCallback onPeriodEnd;
   final bool isStartSelected;
   final bool isEndSelected;
+  final bool hasMemo;
+  final bool hasRelationship;
+  final VoidCallback onMemoTap;
+  final VoidCallback onRelationshipTap;
 
   const TodayCard({
     super.key,
@@ -31,6 +37,10 @@ class TodayCard extends StatelessWidget {
     required this.onPeriodEnd,
     required this.isStartSelected,
     required this.isEndSelected,
+    required this.onMemoTap,
+    required this.onRelationshipTap,
+    this.hasMemo = false,
+    this.hasRelationship = false,
   });
 
   @override
@@ -41,79 +51,137 @@ class TodayCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primaryLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
-            style: AppTextStyles.title.copyWith(
-              fontSize: 20,
-              color: AppColors.primary,
-            ),
-          ),
-              const SizedBox(width: AppSpacing.sm),
-          Builder(
-            builder: (context) {
-                  final probability = _calculatePregnancyProbability(
-                    selectedDay,
-                  );
-
-                  if (probability == null) {
-                return const SizedBox.shrink();
-              }
-
-                  Color circleColor;
-                  String text;
-
-                switch (probability) {
-                  case '낮음':
-                    circleColor = const Color(0xFFC5C5C5);
-                    text = '임신 확률 낮음';
-                    break;
-                  case '높음':
-                    circleColor = const Color(0xFFA7C4A0);
-                    text = '임신 확률 높음';
-                    break;
-                  default:
-                    circleColor = const Color(0xFFFFD966);
-                    text = '임신 확률 보통';
-              }
-
-              return Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: circleColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          text,
-                          style: AppTextStyles.body.copyWith(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                  );
-                },
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 20,
+                        color: AppColors.textDisabled,
+                      ),
                     ),
+                    Builder(
+                      builder: (context) {
+                        final probability = _calculatePregnancyProbability(
+                          selectedDay,
+                        );
+
+                        if (probability == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        Color circleColor;
+                        String text;
+
+                        switch (probability) {
+                          case '낮음':
+                            circleColor = const Color(0xFFC5C5C5);
+                            text = '임신 확률 낮음';
+                            break;
+                          case '높음':
+                            circleColor = const Color(0xFFA7C4A0);
+                            text = '임신 확률 높음';
+                            break;
+                          default:
+                            circleColor = const Color(0xFFFFD966);
+                            text = '임신 확률 보통';
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            children: [
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: circleColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Transform.rotate(
+                                      angle: 45 * math.pi / 180,
+                                      child: SvgPicture.string(
+                                        '''
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12Z" fill="white"/>
+                          <path d="M10 12C13 12 14 10 17 10C20 10 21 12 22 12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        ''',
+                                        width: 10,
+                                        height: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(width: 4),
+                              Text(
+                                text,
+                                style: AppTextStyles.body.copyWith(
+                                  fontSize: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: onRelationshipTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        hasRelationship ? Icons.favorite : Icons.favorite_border,
+                        size: 26,
+                        color: hasRelationship
+                            ? SymptomColors.relationship
+                            : AppColors.textDisabled.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: onMemoTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        hasMemo ? Icons.assignment : Icons.assignment_outlined,
+                        size: 26,
+                        color: hasMemo
+                            ? AppColors.textSecondary
+                            : AppColors.textDisabled.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
                 ],
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: ToggleChip(
-                  icon: Icons.invert_colors,
+                  icon: Icons.water_drop,
                   label: '생리 시작',
                   selected: isStartSelected,
                   onTap: onPeriodStart,
