@@ -23,10 +23,10 @@ class SymptomChip extends StatelessWidget {
     final isGood = label == '좋음';
     final isMemo = label == '메모';
     
-    // 선택된 경우: 좋음은 초록색, 그 외는 노랑색
+    // 선택된 경우: 좋음은 초록색, 그 외는 보라색
     // 선택되지 않은 경우: 기본 색상
     final fillColor = selected
-        ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.3): SymptomColors.symptomBase.withValues(alpha: 0.3))
+        ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.3): SymptomColors.symptomBase.withValues(alpha: 0.2))
         : (disabled ? AppColors.disabled : Colors.white);
     
     final borderColor = selected
@@ -40,7 +40,7 @@ class SymptomChip extends StatelessWidget {
     final textColor = selected
         ? (isGood 
             ? const Color(0xFF2E7D32) // 초록색 배경에 어울리는 진한 초록색 텍스트
-            : const Color(0xFF8B5A00)) // 노랑색 배경에 어울리는 진한 갈색 텍스트
+            : const Color(0xFF8E7CC3)) // 보라색 배경에 어울리는 진한 보라색 텍스트
         : (disabled
               ? AppColors.textSecondary.withValues(alpha: 0.5)
               : AppColors.textSecondary);

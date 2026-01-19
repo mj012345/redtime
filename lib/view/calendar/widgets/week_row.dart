@@ -56,9 +56,8 @@ class WeekRow extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const HorizontalLine(),
         SizedBox(
-          height: 50,
+          height: 45,
           child: Row(
             children: week
                 .map(
@@ -92,6 +91,10 @@ class WeekRow extends StatelessWidget {
                       isPeriodStart: _isRangeStart(periodCycles, day),
                       isPeriodEnd: _isRangeEnd(periodCycles, day),
                       isFertileStart: _isFertileWindowStart(
+                        fertileWindowDays,
+                        day,
+                      ),
+                      isFertileEnd: _isFertileWindowEnd(
                         fertileWindowDays,
                         day,
                       ),
@@ -139,6 +142,25 @@ class WeekRow extends StatelessWidget {
         if (i == 0) return true;
         final prev = sorted[i - 1];
         final diff = current.difference(prev).inDays;
+        if (diff > 1) return true;
+        return false;
+      }
+    }
+    return false;
+  }
+
+  bool _isFertileWindowEnd(
+    List<DateTime> fertileWindowDays,
+    DateTime target,
+  ) {
+    if (!_containsDate(fertileWindowDays, target)) return false;
+    final sorted = [...fertileWindowDays]..sort((a, b) => a.compareTo(b));
+    for (int i = 0; i < sorted.length; i++) {
+      final current = sorted[i];
+      if (_sameDay(current, target)) {
+        if (i == sorted.length - 1) return true;
+        final next = sorted[i + 1];
+        final diff = next.difference(current).inDays;
         if (diff > 1) return true;
         return false;
       }

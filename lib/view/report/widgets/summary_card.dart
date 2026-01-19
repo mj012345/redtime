@@ -1,3 +1,5 @@
+// [평균 생리주기/기간]
+
 import 'package:flutter/material.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
@@ -23,15 +25,6 @@ class SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Container(
-              //   width: 20,
-              //   height: 20,
-              //   decoration: const BoxDecoration(
-              //     color: Color(0xFFD9D9D9),
-              //     shape: BoxShape.circle,
-              //   ),
-              // ),
-              // const SizedBox(width: AppSpacing.sm),
               Text(
                 label,
                 style: AppTextStyles.caption.copyWith(

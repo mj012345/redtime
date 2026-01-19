@@ -75,10 +75,10 @@ class CalendarGrid extends StatelessWidget {
                     child: Text(
                       w,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: (w == '일' || w == '토')
                             ? AppColors.primary
-                            : AppColors.textPrimary.withValues(alpha: 0.6),
+                            : AppColors.textPrimary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -86,14 +86,13 @@ class CalendarGrid extends StatelessWidget {
               )
               .toList(),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xs),
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final row in rows) ...[
-              const HorizontalLine(),
               SizedBox(
-                height: 40,
+                height: 45,
                 child: Row(
                   children: row
                       .map(
@@ -134,6 +133,10 @@ class CalendarGrid extends StatelessWidget {
                               fertileWindowDays,
                               day,
                             ),
+                            isFertileEnd: _isFertileWindowEnd(
+                              fertileWindowDays,
+                              day,
+                            ),
                             today: today,
                           ),
                         ),
@@ -142,7 +145,6 @@ class CalendarGrid extends StatelessWidget {
                 ),
               ),
             ],
-            const HorizontalLine(),
           ],
         ),
       ],
@@ -186,6 +188,22 @@ bool _isFertileWindowStart(List<DateTime> fertileWindowDays, DateTime target) {
       if (i == 0) return true;
       final prev = sorted[i - 1];
       final diff = current.difference(prev).inDays;
+      if (diff > 1) return true;
+      return false;
+    }
+  }
+  return false;
+}
+
+bool _isFertileWindowEnd(List<DateTime> fertileWindowDays, DateTime target) {
+  if (!_containsDate(fertileWindowDays, target)) return false;
+  final sorted = [...fertileWindowDays]..sort((a, b) => a.compareTo(b));
+  for (int i = 0; i < sorted.length; i++) {
+    final current = sorted[i];
+    if (_sameDay(current, target)) {
+      if (i == sorted.length - 1) return true;
+      final next = sorted[i + 1];
+      final diff = next.difference(current).inDays;
       if (diff > 1) return true;
       return false;
     }

@@ -20,6 +20,7 @@ class DayCell extends StatelessWidget {
   final bool isPeriodStart;
   final bool isPeriodEnd;
   final bool isFertileStart;
+  final bool isFertileEnd;
   final DateTime? today;
 
   const DayCell({
@@ -42,6 +43,7 @@ class DayCell extends StatelessWidget {
     required this.isPeriodStart,
     required this.isPeriodEnd,
     required this.isFertileStart,
+    required this.isFertileEnd,
     this.today,
   });
 
@@ -98,84 +100,106 @@ class DayCell extends StatelessWidget {
             height: double.infinity,
             decoration: BoxDecoration(
               color: bgColor,
-              border: Border.all(
-                color: showSelected ? borderColor! : Colors.transparent,
-                width: 1,
+              borderRadius: BorderRadius.only(
+                topLeft: (showPeriod && isPeriodStart) || (showFertile && isFertileStart)
+                    ? const Radius.circular(8)
+                    : Radius.zero,
+                bottomLeft: (showPeriod && isPeriodStart) || (showFertile && isFertileStart)
+                    ? const Radius.circular(8)
+                    : Radius.zero,
+                topRight: (showPeriod && isPeriodEnd) || (showFertile && isFertileEnd)
+                    ? const Radius.circular(8)
+                    : Radius.zero,
+                bottomRight: (showPeriod && isPeriodEnd) || (showFertile && isFertileEnd)
+                    ? const Radius.circular(8)
+                    : Radius.zero,
               ),
+              border: showSelected
+                  ? Border.all(
+                      color: borderColor!,
+                      width: 1,
+                    )
+                  : null,
             ),
             child: Padding(
               padding: const EdgeInsets.only(
                 left: 3,
                 right: 3,
                 top: 0,
-                bottom: 2,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
+            child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  const SizedBox(height: 1),
+                  // 1. 날짜 (고정 위치)
                   SizedBox(
-                    height: 16,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            fontSize: isToday ? 12 : 11,
-                            fontWeight: isToday
-                                ? FontWeight.w700
-                                : FontWeight.w300,
-                            color: textColor,
-                          ),
+                    height: 14,
+                    child: Center(
+                      child: Text(
+                        '${date.day}',
+                        style: TextStyle(
+                          fontSize: isToday ? 12 : 11,
+                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w300,
+                          color: textColor,
                         ),
-                        const Spacer(),
-                        if (!isOutsideMonth)
-                          _buildMiddleIndicator(
-                            isPeriod: showPeriod,
-                            isPeriodStart: isPeriodStart,
-                            isPeriodEnd: isPeriodEnd,
-                            isFertile: showFertile,
-                            isOvulation: showOvulation,
-                            isFertileStart: isFertileStart,
-                            isExpectedPeriod: showExpectedPeriod,
-                            isExpectedPeriodStart: isExpectedPeriodStart,
-                          ),
-                      ],
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 하트 아이콘 (관계)
-                        if (hasRelationship && !isOutsideMonth) ...[
-                          const Icon(
-                            Icons.favorite,
-                            size: 10,
-                            color: SymptomColors.relationship,
+                  const SizedBox(height: 3),
+                  // 2. 텍스트 표시 (고정 높이 영역)
+                  SizedBox(
+                    height: 12,
+                    child: isOutsideMonth
+                        ? const SizedBox.shrink()
+                        : Center(
+                            child: _buildMiddleIndicator(
+                              isPeriod: showPeriod,
+                              isPeriodStart: isPeriodStart,
+                              isPeriodEnd: isPeriodEnd,
+                              isFertile: showFertile,
+                              isOvulation: showOvulation,
+                              isFertileStart: isFertileStart,
+                              isExpectedPeriod: showExpectedPeriod,
+                              isExpectedPeriodStart: isExpectedPeriodStart,
+                            ),
                           ),
-                          const SizedBox(width: 2),
-                        ],
-                        // 증상 아이콘
-                        if (hasRecord && !isOutsideMonth) ...[
-                          const Icon(
-                            Icons.add_circle,
-                            size: 10,
-                            color: SymptomColors.symptomBase,
+                  ),
+                  // 3. 아이콘 (고정 높이 영역)
+                  SizedBox(
+                    height: 12,
+                    child: isOutsideMonth
+                        ? const SizedBox.shrink()
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // 하트 아이콘 (관계)
+                              if (hasRelationship) ...[
+                                const Icon(
+                                  Icons.favorite,
+                                  size: 8,
+                                  color: SymptomColors.relationship,
+                                ),
+                                if (hasRecord || hasMemo) const SizedBox(width: 1),
+                              ],
+                              // 증상 아이콘
+                              if (hasRecord) ...[
+                                const Icon(
+                                  Icons.add_circle,
+                                  size: 8,
+                                  color: SymptomColors.symptomBase,
+                                ),
+                                if (hasMemo) const SizedBox(width: 1),
+                              ],
+                              // 메모 아이콘
+                              if (hasMemo)
+                                const Icon(
+                                  Icons.assignment,
+                                  size: 8,
+                                  color: AppColors.textSecondary,
+                                ),
+                            ],
                           ),
-                          if (hasMemo && !isOutsideMonth)
-                            const SizedBox(width: 2),
-                        ],
-                        // 메모 아이콘
-                        if (hasMemo && !isOutsideMonth)
-                          const Icon(
-                            Icons.assignment,
-                            size: 10,
-                            color: AppColors.textSecondary,
-                          ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -201,42 +225,42 @@ class DayCell extends StatelessWidget {
     if (isPeriod && isPeriodStart && isPeriodEnd) {
       indicator = const Text(
         '시작/종료',
-        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w800),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodStart) {
       indicator = const Text(
         '시작',
-        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodEnd) {
       indicator = const Text(
         '종료',
-        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isOvulation) {
       indicator = const Text(
         '배란일',
-        style: TextStyle(fontSize: 8, color: Color(0xFF2CA9D2)),
+        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
         '생리예정',
-        style: TextStyle(fontSize: 8, color: AppColors.primary),
+        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isFertile && !isOvulation && isFertileStart) {
       indicator = const Text(
         '가임기',
-        style: TextStyle(fontSize: 8, color: Color(0xFF2CA9D2)),
+        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
@@ -245,6 +269,6 @@ class DayCell extends StatelessWidget {
     if (indicator == null) {
       return const SizedBox.shrink();
     }
-    return SizedBox(height: 10, child: indicator);
+    return indicator;
   }
 }

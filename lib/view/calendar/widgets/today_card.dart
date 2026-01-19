@@ -54,151 +54,151 @@ class TodayCard extends StatelessWidget {
         border: Border.all(color: AppColors.primaryLight),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 20,
-                        color: AppColors.textDisabled,
-                      ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${selectedDay!.month}월 ${selectedDay!.day}일 ${_weekdayLabel(selectedDay!)}요일',
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
                     ),
-                    Builder(
-                      builder: (context) {
-                        final probability = _calculatePregnancyProbability(
-                          selectedDay,
-                        );
+                  ),
+                  Builder(
+                    builder: (context) {
+                      final probability = _calculatePregnancyProbability(
+                        selectedDay,
+                      );
 
-                        if (probability == null) {
-                          return const SizedBox.shrink();
-                        }
+                      if (probability == null) {
+                        return const SizedBox.shrink();
+                      }
 
-                        Color circleColor;
-                        String text;
+                      Color circleColor;
+                      String text;
 
-                        switch (probability) {
-                          case '낮음':
-                            circleColor = const Color(0xFFC5C5C5);
-                            text = '임신 확률 낮음';
-                            break;
-                          case '높음':
-                            circleColor = const Color(0xFFA7C4A0);
-                            text = '임신 확률 높음';
-                            break;
-                          default:
-                            circleColor = const Color(0xFFFFD966);
-                            text = '임신 확률 보통';
-                        }
+                      switch (probability) {
+                        case '낮음':
+                          circleColor = const Color(0xFFC5C5C5);
+                          text = '임신 확률 낮음';
+                          break;
+                        case '높음':
+                          circleColor = const Color(0xFF28965B);
+                          text = '임신 확률 높음';
+                          break;
+                        default:
+                          circleColor = const Color(0xFFBFBF67);
+                          text = '임신 확률 보통';
+                      }
 
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                                Container(
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: circleColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Transform.rotate(
-                                      angle: 45 * math.pi / 180,
-                                      child: SvgPicture.string(
-                                        '''
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: circleColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Transform.rotate(
+                                  angle: 45 * math.pi / 180,
+                                  child: SvgPicture.string(
+                                    '''
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12Z" fill="white"/>
                           <path d="M10 12C13 12 14 10 17 10C20 10 21 12 22 12" stroke="white" stroke-width="2" stroke-linecap="round"/>
                         </svg>
                         ''',
-                                        width: 10,
-                                        height: 10,
-                                      ),
-                                    ),
+                                    width: 8,
+                                    height: 8,
                                   ),
                                 ),
-                              const SizedBox(width: 4),
-                              Text(
-                                text,
-                                style: AppTextStyles.body.copyWith(
-                                  fontSize: 14,
-                                  color: AppColors.textSecondary,
-                                ),
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: onRelationshipTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        hasRelationship ? Icons.favorite : Icons.favorite_border,
-                        size: 26,
-                        color: hasRelationship
-                            ? SymptomColors.relationship
-                            : AppColors.textDisabled.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: onMemoTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        hasMemo ? Icons.assignment : Icons.assignment_outlined,
-                        size: 26,
-                        color: hasMemo
-                            ? AppColors.textSecondary
-                            : AppColors.textDisabled.withValues(alpha: 0.5),
-                      ),
-                    ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              text,
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: ToggleChip(
-                  icon: Icons.water_drop,
-                  label: '생리 시작',
-                  selected: isStartSelected,
-                  onTap: onPeriodStart,
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: onRelationshipTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      hasRelationship ? Icons.favorite : Icons.favorite_border,
+                      size: 26,
+                      color: hasRelationship
+                          ? SymptomColors.relationship
+                          : AppColors.textDisabled.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ToggleChip(
-                  icon: Icons.block,
-                  label: '생리 종료',
-                  selected: isEndSelected,
-                  onTap: onPeriodEnd,
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: onMemoTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      hasMemo ? Icons.assignment : Icons.assignment_outlined,
+                      size: 26,
+                      color: hasMemo
+                          ? AppColors.textSecondary
+                          : AppColors.textDisabled.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: ToggleChip(
+                icon: Icons.water_drop,
+                label: '생리 시작',
+                selected: isStartSelected,
+                onTap: onPeriodStart,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ToggleChip(
+                icon: Icons.block,
+                label: '생리 종료',
+                selected: isEndSelected,
+                onTap: onPeriodEnd,
+              ),
+            ),
+          ],
+        ),
+      ],
       ),
     );
   }

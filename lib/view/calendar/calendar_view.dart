@@ -89,15 +89,12 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
 
   /// 최대 달력 높이 반환 (6주 달력 기준)
   double _getMaxCalendarHeight() {
-    const headerHeight = 20.0; // 날짜 헤더 (텍스트 높이)
-    const spacing = AppSpacing.lg;
-    const cellHeight = 40.0;
-    const lineHeight = 1.0;
-    const rowHeight = cellHeight + lineHeight;
+    const headerHeight = 22.0; // 요일 헤더 (텍스트 높이 + 여백)
+    const spacing = AppSpacing.xs; // 요일과 날짜 사이 간격
+    const cellHeight = 45.0;
     const maxRowCount = 6;
-    const lastLineHeight = 1.0;
 
-    return headerHeight + spacing + (maxRowCount * rowHeight) + lastLineHeight;
+    return headerHeight + spacing + (maxRowCount * cellHeight);
   }
 
   /// 선택된 날짜가 포함된 주를 계산
@@ -364,7 +361,6 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                       ),
                                     ),
                                   ] else ...[
-                                    const SizedBox(height: AppSpacing.lg),
                                     TodayCard(
                                       selectedDay: selectedDay,
                                       today: today,
@@ -390,15 +386,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                       onRelationshipTap: () =>
                                           vm.toggleSymptom('기타/관계'),
                                     ),
-                                    const SizedBox(height: AppSpacing.xl),
-                                    Text(
-                                      '증상',
-                                      style: AppTextStyles.title.copyWith(
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.sm),
+                                    const SizedBox(height: AppSpacing.xl),                                  
                                     SymptomSection(
                                       categories: vm.symptomCatalog,
                                       selectedLabels: vm.selectedSymptomsFor(
@@ -500,10 +488,10 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  double get minExtent => 61.0;
+  double get minExtent => 89.0;
 
   @override
-  double get maxExtent => 61.0;
+  double get maxExtent => 89.0;
 
   @override
   Widget build(
@@ -511,11 +499,38 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
     return Container(
       color: AppColors.background,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: weekdays
+                  .map(
+                    (w) => Expanded(
+                      child: Center(
+                        child: Text(
+                          w,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: (w == '일' || w == '토')
+                                ? AppColors.primary
+                                : AppColors.textPrimary.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: WeekRow(

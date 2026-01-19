@@ -41,7 +41,7 @@ class SymptomStatItem extends StatelessWidget {
                 fontSize: AppTextStyles.body.fontSize,
                 color: isExample
                     ? AppColors.textDisabled
-                    : AppColors.textPrimary,
+                    : AppColors.textSecondary,
               ),
             ),
             const Spacer(),
@@ -72,7 +72,7 @@ class SymptomStatItem extends StatelessWidget {
         Stack(
           children: [
             Container(
-              height: 20,
+              height: 10,
               decoration: BoxDecoration(
                 color: barBg,
                 borderRadius: BorderRadius.circular(5),
@@ -82,7 +82,7 @@ class SymptomStatItem extends StatelessWidget {
               alignment: Alignment.centerLeft,
               widthFactor: barWidthRatio,
               child: Container(
-                height: 20,
+                height: 10,
                 decoration: BoxDecoration(
                   color: data.color,
                   borderRadius: BorderRadius.circular(5),
