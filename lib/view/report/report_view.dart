@@ -530,16 +530,16 @@ class ReportView extends StatelessWidget {
                                             MainAxisAlignment.center,
                                         children: [
                                           Icon(
-                                            Icons.info_outline,
+                                            Icons.block,
                                             size: 20,
-                                            color: AppColors.primary,
+                                            color: AppColors.textDisabled,
                                           ),
                                           const SizedBox(height: AppSpacing.sm),
                                           Text(
-                                            '아직 등록된 증상이 없어요.',
+                                            '아직 기록된 증상이 없어요.',
                                             style: AppTextStyles.body.copyWith(
                                               fontSize: 14,
-                                              color: AppColors.primary,
+                                              color: AppColors.textDisabled,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
@@ -647,19 +647,19 @@ class ReportView extends StatelessWidget {
                                                 MainAxisAlignment.center,
                                             children: [
                                               Icon(
-                                                Icons.info_outline,
+                                                Icons.block,
                                                 size: 20,
-                                                color: AppColors.primary,
+                                                color: AppColors.textDisabled,
                                               ),
                                               const SizedBox(
                                                 height: AppSpacing.sm,
                                               ),
                                               Text(
-                                                '아직 등록된 증상이 없어요.',
+                                                '아직 기록된 증상이 없어요.',
                                                 style: AppTextStyles.body
                                                     .copyWith(
                                                       fontSize: 14,
-                                                      color: AppColors.primary,
+                                                      color: AppColors.textDisabled,
                                                     ),
                                                 textAlign: TextAlign.center,
                                               ),
@@ -744,16 +744,16 @@ class ReportView extends StatelessWidget {
                                             MainAxisAlignment.center,
                                         children: [
                                           Icon(
-                                            Icons.info_outline,
+                                            Icons.block,
                                             size: 20,
-                                            color: AppColors.primary,
+                                            color: AppColors.textDisabled,
                                           ),
                                           const SizedBox(height: AppSpacing.sm),
                                           Text(
-                                            '아직 등록된 주기가 없어요.',
+                                            '아직 기록된 주기가 없어요.',
                                             style: AppTextStyles.body.copyWith(
                                               fontSize: 14,
-                                              color: AppColors.primary,
+                                              color: AppColors.textDisabled,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),

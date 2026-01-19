@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 
 class DayCell extends StatelessWidget {
@@ -122,7 +121,7 @@ class DayCell extends StatelessWidget {
                         Text(
                           '${date.day}',
                           style: TextStyle(
-                            fontSize: isToday ? 13 : 11,
+                            fontSize: isToday ? 12 : 11,
                             fontWeight: isToday
                                 ? FontWeight.w700
                                 : FontWeight.w300,
@@ -151,29 +150,29 @@ class DayCell extends StatelessWidget {
                       children: [
                         // 하트 아이콘 (관계)
                         if (hasRelationship && !isOutsideMonth) ...[
-                          SvgPicture.asset(
-                            'assets/icons/heart.svg',
-                            width: 12,
-                            height: 12,
+                          const Icon(
+                            Icons.favorite,
+                            size: 10,
+                            color: SymptomColors.relationship,
                           ),
-                          const SizedBox(width: 3),
+                          const SizedBox(width: 2),
                         ],
                         // 증상 아이콘
                         if (hasRecord && !isOutsideMonth) ...[
-                          SvgPicture.asset(
-                            'assets/icons/symptom.svg',
-                            width: 12,
-                            height: 12,
+                          const Icon(
+                            Icons.add_circle,
+                            size: 10,
+                            color: SymptomColors.symptomBase,
                           ),
                           if (hasMemo && !isOutsideMonth)
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 2),
                         ],
                         // 메모 아이콘
                         if (hasMemo && !isOutsideMonth)
-                          SvgPicture.asset(
-                            'assets/icons/memo.svg',
-                            width: 12,
-                            height: 12,
+                          const Icon(
+                            Icons.assignment,
+                            size: 10,
+                            color: AppColors.textSecondary,
                           ),
                       ],
                     ),

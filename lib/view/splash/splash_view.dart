@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
+import 'package:red_time_app/widgets/common_dialog.dart';
 
 class SplashView extends StatefulWidget {
   final bool showOnlyUI;
@@ -91,18 +92,15 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('네트워크 오류'),
-        content: const Text('네트워크 연결을 확인해 주세요.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _checkNetworkAndInitialize();
-            },
-            child: const Text('재시도'),
-          ),
-        ],
+      builder: (context) => AppAlertDialog(
+        title: '네트워크 오류',
+        content: '네트워크 연결을 확인해 주세요.',
+        confirmLabel: '재시도',
+        showCancel: false,
+        onConfirm: () {
+          Navigator.of(context).pop();
+          _checkNetworkAndInitialize();
+        },
       ),
     );
   }

@@ -23,3 +23,14 @@ class AppColors {
   static Color shadowLight = Colors.black.withValues(alpha: 0.05);
   static Color shadowChip = Colors.black.withValues(alpha: 0.1);
 }
+
+class SymptomColors {
+  const SymptomColors._();
+
+  static const Color period = Color(0xFFFFEBEE); // 생리일
+  static const Color fertile = Color(0xFFE8F5F6); // 가임기
+  static const Color border = Color(0xFFE7E7E7); // 테두리
+  static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상
+  static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상
+  static const Color relationship = Color(0xFFFF80AB); // 관계(하트) 색상
+}

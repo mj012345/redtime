@@ -267,8 +267,19 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                 expectedFertileWindowDays:
                                     vm.expectedFertileWindowDays,
                                 expectedOvulationDay: vm.expectedOvulationDay,
-                                symptomRecordDays: vm.symptomRecordDays,
-                                getSymptomCount: vm.getSymptomCountFor,
+                                 hasRecordFor: (day) {
+                                   final symptoms = vm.selectedSymptomsFor(day);
+                                   return symptoms.any((s) => s != '기타/관계');
+                                 },
+                                 getSymptomCount: vm.getSymptomCountFor,
+                                 hasMemoFor: (day) {
+                                   final memo = vm.getMemoFor(day);
+                                   return memo != null && memo.isNotEmpty;
+                                 },
+                                 hasRelationshipFor: (day) {
+                                   final symptoms = vm.selectedSymptomsFor(day);
+                                   return symptoms.contains('기타/관계');
+                                 },
                                 onSelect: vm.selectDay,
                               ),
                             ),
@@ -320,20 +331,23 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
                                               vm.expectedFertileWindowDays,
                                           expectedOvulationDay:
                                               vm.expectedOvulationDay,
-                                          symptomRecordDays:
-                                              vm.symptomRecordDays,
-                                          getSymptomCount:
-                                              vm.getSymptomCountFor,
-                                          hasMemoFor: (day) {
-                                            final memo = vm.getMemoFor(day);
-                                            return memo != null &&
-                                                memo.isNotEmpty;
-                                          },
-                                          hasRelationshipFor: (day) {
-                                            final symptoms = vm
-                                                .selectedSymptomsFor(day);
-                                            return symptoms.contains('기타/관계');
-                                          },
+                                           hasRecordFor: (day) {
+                                             final symptoms = vm
+                                                 .selectedSymptomsFor(day);
+                                             return symptoms.any((s) => s != '기타/관계');
+                                           },
+                                           getSymptomCount:
+                                               vm.getSymptomCountFor,
+                                           hasMemoFor: (day) {
+                                             final memo = vm.getMemoFor(day);
+                                             return memo != null &&
+                                                 memo.isNotEmpty;
+                                           },
+                                           hasRelationshipFor: (day) {
+                                             final symptoms = vm
+                                                 .selectedSymptomsFor(day);
+                                             return symptoms.contains('기타/관계');
+                                           },
                                           onSelect: vm.selectDay,
                                         );
                                       },
@@ -449,8 +463,10 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
   final List<DateTime> expectedPeriodDays;
   final List<DateTime> expectedFertileWindowDays;
   final DateTime? expectedOvulationDay;
-  final List<DateTime> symptomRecordDays;
+  final bool Function(DateTime) hasRecordFor;
   final int Function(DateTime) getSymptomCount;
+  final bool Function(DateTime) hasMemoFor;
+  final bool Function(DateTime) hasRelationshipFor;
   final ValueChanged<DateTime> onSelect;
 
   _StickyWeekHeaderDelegate({
@@ -465,8 +481,10 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.expectedPeriodDays,
     required this.expectedFertileWindowDays,
     required this.expectedOvulationDay,
-    required this.symptomRecordDays,
+    required this.hasRecordFor,
     required this.getSymptomCount,
+    required this.hasMemoFor,
+    required this.hasRelationshipFor,
     required this.onSelect,
   });
 
@@ -501,8 +519,10 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
               expectedPeriodDays: expectedPeriodDays,
               expectedFertileWindowDays: expectedFertileWindowDays,
               expectedOvulationDay: expectedOvulationDay,
-              symptomRecordDays: symptomRecordDays,
+              hasRecordFor: hasRecordFor,
               getSymptomCount: getSymptomCount,
+              hasMemoFor: hasMemoFor,
+              hasRelationshipFor: hasRelationshipFor,
               onSelect: onSelect,
             ),
           ),
@@ -531,6 +551,8 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
         selectedDay != oldDelegate.selectedDay ||
         periodDays != oldDelegate.periodDays ||
         fertileWindowDays != oldDelegate.fertileWindowDays ||
-        symptomRecordDays != oldDelegate.symptomRecordDays;
+        hasRecordFor != oldDelegate.hasRecordFor ||
+        hasMemoFor != oldDelegate.hasMemoFor ||
+        hasRelationshipFor != oldDelegate.hasRelationshipFor;
   }
 }

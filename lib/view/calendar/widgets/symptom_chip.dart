@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 
-/// 증상별 색상 정의 (트래킹 셀과 동일)
-class SymptomColors {
-  static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상 (노랑색)
-  static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상 (초록색)
-}
 
 class SymptomChip extends StatelessWidget {
   final String label;

@@ -3,15 +3,6 @@ import 'package:red_time_app/models/symptom_category.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 
-/// 증상별 색상 정의
-class SymptomColors {
-  static const Color period = Color(0xFFFFEBEE); // 생리일
-  static const Color fertile = Color(0xFFE8F5F6); // 가임기
-  static const Color border = Color(0xFFE7E7E7); // 테두리
-  static const Color symptomBase = Color(0xFFFFC477); // 증상 기본 색상
-  static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상
-}
-
 /// 카테고리별 레이블 정보
 class _CategoryLabel {
   final String categoryTitle;
@@ -290,7 +281,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     _cachedDates = dates;
     _cachedLabelRows = _generateLabelRows();
     _cachedSymptomData = widget.symptomData;
-    _cachedMemos = widget.memos;
     _cachedPeriodDays = widget.periodDays;
     _cachedFertileWindowDays = widget.fertileWindowDays;
     _cachedIsExample = widget.isExample;
@@ -322,9 +312,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
   /// 날짜 포맷팅 (M.d 또는 d)
   String _formatDate(DateTime date, bool isFirstOfMonth) {
-    if (isFirstOfMonth) {
-      return '${date.month}.${date.day}';
-    }
     return '${date.day}';
   }
 
@@ -490,12 +477,14 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     final cellSize = 16.0; // 셀 크기
     final tooltipOffset = -3.0; // 툴팁 오프셋 (셀과 약간 겹치도록)
     final horizontalPadding = 10.0; // 툴팁 좌우 패딩
-
-    // 텍스트의 실제 너비 계산
+    // 툴팁 최대 너비 제한 (화면 너비의 60%)
+    final maxAllowedWidth = screenSize.width * 0.6;
     final textStyle = AppTextStyles.body.copyWith(
       fontSize: 10,
       color: AppColors.textPrimary,
     );
+    
+    // 텍스트의 실제 너비 계산 (최대 너비 제한 적용)
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
@@ -505,10 +494,11 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         style: textStyle,
       ),
     );
-    textPainter.layout();
-    final maxTextWidth = textPainter.size.width;
-    final popupWidth = maxTextWidth + horizontalPadding * 2;
-    final popupHeight = symptomTexts.length * 20.0 + 12.0; // 툴팁 높이 추정
+    textPainter.layout(maxWidth: maxAllowedWidth - horizontalPadding * 2);
+    
+    final popupWidth = textPainter.size.width + horizontalPadding * 2;
+    // 툴팁 높이 추정 (줄바꿈 고려)
+    final popupHeight = textPainter.size.height * symptomTexts.length + 12.0;
 
     // 기본: 셀의 오른쪽 하단 (셀과 약간 겹치도록)
     double left = tapPosition.dx + cellSize / 2 + tooltipOffset;
@@ -516,8 +506,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
     // 오른쪽에 공간이 부족하면 왼쪽 하단으로 표시
     if (left + popupWidth > screenSize.width - 8) {
-      // 툴팁의 오른쪽 끝이 셀의 왼쪽 끝과 가깝게 표시 (셀과 약간 겹치도록)
-      // tooltipOffset을 빼서 셀과 더 가깝게 (오른쪽 표시와 동일한 거리)
       left = tapPosition.dx - cellSize / 3 - popupWidth - tooltipOffset;
     }
 
@@ -538,9 +526,10 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         child: Material(
           color: Colors.transparent,
           child: Container(
+            width: popupWidth,
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.7),
+              color: AppColors.surface.withValues(alpha: 0.9), // 배경을 조금 더 불투명하게 (가독성)
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -559,10 +548,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       text,
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 10,
-                        color: AppColors.textPrimary,
-                      ),
+                      style: textStyle,
                     ),
                   ),
                 ),
@@ -761,12 +747,25 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                 width: 30,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: Text(
-                    _visibleFirstMonthYear ?? '',
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 9,
-                      color: AppColors.textPrimary.withValues(alpha: 0.5),
-                      fontWeight: FontWeight.normal,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: animation.drive(Tween(begin: 0.9, end: 1.0)),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      _visibleFirstMonthYear ?? '',
+                      key: ValueKey(_visibleFirstMonthYear),
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 9,
+                        color: AppColors.textPrimary.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -836,9 +835,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                   color: isToday
                                       ? AppColors.primary
                                       : AppColors.textPrimary.withValues(
-                                          alpha: isFirstDay ? 0.8 : 0.5,
+                                          alpha: 0.5,
                                         ),
-                                  fontWeight: isToday || isFirstDay
+                                  fontWeight: isToday
                                       ? FontWeight.w600
                                       : FontWeight.normal,
                                 ),
@@ -1068,15 +1067,16 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                             ),
                                           ),
                                         ),
-                                        if (hasRelationship)
-                                          Positioned.fill(
-                                            child: Center(
-                                              child: Text(
-                                                '❤️',
-                                                style: TextStyle(fontSize: 8),
+                                          if (hasRelationship)
+                                            const Positioned.fill(
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.favorite,
+                                                  size: 10,
+                                                  color: SymptomColors.relationship,
+                                                ),
                                               ),
                                             ),
-                                          ),
                                       ],
                                     ),
                                   );

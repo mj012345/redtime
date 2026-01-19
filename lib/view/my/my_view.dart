@@ -5,6 +5,7 @@ import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 import 'package:red_time_app/widgets/bottom_nav.dart';
+import 'package:red_time_app/widgets/common_dialog.dart';
 
 class MyView extends StatelessWidget {
   const MyView({super.key});
@@ -15,23 +16,13 @@ class MyView extends StatelessWidget {
     // 로그아웃 확인 다이얼로그 표시
     final shouldSignOut = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        content: const Text('정말 로그아웃 하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black.withValues(alpha: 0.5),
-            ),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('로그아웃'),
-          ),
-        ],
+      builder: (context) => AppAlertDialog(
+        title: '로그아웃',
+        content: '정말 로그아웃 하시겠습니까?',
+        confirmLabel: '로그아웃',
+        confirmColor: Colors.red,
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(false),
       ),
     );
 
@@ -54,23 +45,13 @@ class MyView extends StatelessWidget {
     // 계정 삭제 확인 다이얼로그 표시
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        content: const Text('정말 계정을 삭제하시겠습니까?\n삭제된 계정은 복구할 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black.withValues(alpha: 0.5),
-            ),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
+      builder: (context) => AppAlertDialog(
+        title: '계정 삭제',
+        content: '정말 계정을 삭제하시겠습니까?\n삭제된 계정은 복구할 수 없습니다.',
+        confirmLabel: '삭제',
+        confirmColor: Colors.red,
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(false),
       ),
     );
 
