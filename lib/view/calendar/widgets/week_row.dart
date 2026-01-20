@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'day_cell.dart';
-import 'horizontal_line.dart';
 
 /// 선택된 날짜가 포함된 주를 표시하는 위젯
 class WeekRow extends StatelessWidget {

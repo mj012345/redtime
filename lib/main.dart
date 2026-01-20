@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // SystemChrome 사용을 위한 임포트
 import 'package:provider/provider.dart';
 import 'package:red_time_app/firebase_options.dart';
 import 'package:red_time_app/repositories/period_repository.dart';
@@ -24,6 +25,11 @@ import 'package:red_time_app/view/report/report_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 앱 화면 방향을 세로(portraitUp)로 고정
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
 
   // 전역 에러 핸들러 설정
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -120,7 +126,7 @@ class MyApp extends StatelessWidget {
               AuthError(message: final msg) => LoginView(errorMessage: msg),
               Authenticated(isNewUser: final isNewUser) => isNewUser
                   ? const TermsAgreementView() 
-                  : const FigmaCalendarPage(),
+                  : const CalendarView(),
             };
           },
         ),
@@ -146,7 +152,7 @@ class MyApp extends StatelessWidget {
               return noTransition(const MyView());
             case '/calendar':
             default:
-              return noTransition(const FigmaCalendarPage());
+              return noTransition(const CalendarView());
           }
         },
       ),

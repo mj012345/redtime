@@ -102,42 +102,54 @@ class CalendarService {
     } else {
       cycleLength = 28;
     }
-    cycleLength = cycleLength.clamp(21, 35);
+    // 주기가 매우 짧은 경우(19일 등)도 지원하기 위해 범위 확장
+    cycleLength = cycleLength.clamp(15, 45);
 
     // periodDuration: 실제 생리 기간을 대표하는 값 (durations 중앙값)
-    //   예) [4,5,5,6] -> 5일
     final periodDuration = durations.isEmpty ? 1 : _medianInt(durations);
 
     var fertileWindowDays = <DateTime>[];
     DateTime? ovulationDay;
     var ovulationDays = <DateTime>[];
 
-    // luteal: 황체기 길이(배란~다음 생리 시작 전까지)
-    // targetDay: 배란 예상 오프셋(시작일에서 며칠 후가 배란인지)
-    // 3) 황체기: 주기 비례(40%) → 9~16일 clamp, 최소 배란 offset 6일 보장
-    //    - clamp: 최소/최대 값 사이로 잘라내 범위를 유지
-    //    - offset: 시작점에서 얼마나 떨어져 있는지(배란이 시작일보다 몇 일 후인지)
-    //    - 짧은 주기에서 과도한 앞당김 방지
-    final scaledLuteal = (cycleLength * 0.4).round();
-    final int luteal = scaledLuteal.clamp(9, 16);
-    const int minOvulationOffset = 6;
-    final int targetDay = (cycleLength - luteal)
-        .clamp(minOvulationOffset, cycleLength)
-        .toInt();
+    // 황체기: 생물학적 표준인 14일로 고정
+    const int luteal = 14;
+    // 배란은 생리 시작일로부터 최소 7일째(오프셋 6일) 이후여야 함
+    final int targetDay = (cycleLength - luteal).clamp(6, cycleLength);
 
-    for (final cycle in sorted) {
-      // cycleOvulation: 해당 주기의 배란 예상일 (시작일 + targetDay)
-      final cycleOvulation = cycle.start.add(Duration(days: targetDay));
+    for (int i = 0; i < sorted.length; i++) {
+      final cycle = sorted[i];
+      DateTime cycleOvulation;
+
+      // 만약 다음 기록이 있다면, 다음 기록의 시작일로부터 14일 전을 배란일로 계산 (실제 데이터 반영)
+      if (i < sorted.length - 1) {
+        final nextStart = sorted[i + 1].start;
+        cycleOvulation = DateTime(
+          nextStart.year,
+          nextStart.month,
+          nextStart.day,
+        ).subtract(const Duration(days: luteal));
+
+        // 배란일 하한선 적용: 최소 시작일로부터 7일째(6일 오프셋)
+        final minOv = cycle.start.add(const Duration(days: 6));
+        if (cycleOvulation.isBefore(minOv)) {
+          cycleOvulation = minOv;
+        }
+      } else {
+        // 마지막 기록은 평균 주기(targetDay)를 사용하여 예측
+        cycleOvulation = cycle.start.add(Duration(days: targetDay));
+      }
+
       ovulationDays.add(cycleOvulation);
       if (ovulationDay == null || cycleOvulation.isAfter(ovulationDay)) {
         ovulationDay = cycleOvulation;
       }
 
-      // startWindow: 배란일 4일 전부터 시작하는 가임기 시작점 (총 7일 확보)
+      // 가임기 계산: 배란일 기준 -4일 ~ +2일 (총 7일, 원래 설정으로 복원)
       final startWindow = cycleOvulation.subtract(const Duration(days: 4));
-      for (int i = 0; i < 7; i++) {
+      for (int j = 0; j < 7; j++) {
         fertileWindowDays.add(
-          DateTime(startWindow.year, startWindow.month, startWindow.day + i),
+          DateTime(startWindow.year, startWindow.month, startWindow.day + j),
         );
       }
     }
@@ -171,16 +183,16 @@ class CalendarService {
       }
 
       // expectedOvulation(배란 예상일) 계산 방법:
-      // 1) cycleLength: 최근 간격 trimmed mean 후 21~35일로 제한
-      // 2) luteal: cycleLength의 40%를 9~16일로 clamp
-      // 3) targetDay: cycleLength - luteal, 단 최소 offset 6일 보장
+      // 1) cycleLength: 최근 간격 trimmed mean 후 15~45일로 제한
+      // 2) luteal: 14일 고정
+      // 3) targetDay: cycleLength - luteal, 단 최소 7일째(오프셋 6) 보장
       // 4) expectedOvulation = nextPeriodStart + targetDay
       final expectedOvulation = nextPeriodStart.add(Duration(days: targetDay));
       if (month == 0) {
         expectedOvulationDay = expectedOvulation;
       }
 
-      // expectedStartWindow: 예측 배란일 4일 전부터 시작하는 가임기 시작점
+      // expectedStartWindow: 예측 배란일 기준 -4일 ~ +2일 (총 7일)
       final expectedStartWindow = expectedOvulation.subtract(
         const Duration(days: 4),
       );

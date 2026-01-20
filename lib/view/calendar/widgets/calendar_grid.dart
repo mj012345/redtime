@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
-import 'horizontal_line.dart';
 import 'day_cell.dart';
 
 class CalendarGrid extends StatelessWidget {

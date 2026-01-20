@@ -14,14 +14,14 @@ import 'widgets/symptom_section.dart';
 import 'widgets/memo_bottom_sheet.dart';
 import 'widgets/week_row.dart';
 
-class FigmaCalendarPage extends StatefulWidget {
-  const FigmaCalendarPage({super.key});
+class CalendarView extends StatefulWidget {
+  const CalendarView({super.key});
 
   @override
-  State<FigmaCalendarPage> createState() => _FigmaCalendarPageState();
+  State<CalendarView> createState() => _CalendarViewState();
 }
 
-class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
+class _CalendarViewState extends State<CalendarView> {
   late PageController _pageController;
   late ScrollController _scrollController;
   static const int _basePageIndex = 1000;
@@ -32,7 +32,11 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _basePageIndex);
+    // 초기 페이지 인덱스를 ViewModel의 현재 월 기준으로 설정
+    final vm = context.read<CalendarViewModel>();
+    final initialIndex = _getIndexFromMonth(vm.currentMonth, vm.today);
+    
+    _pageController = PageController(initialPage: initialIndex);
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
   }
@@ -128,6 +132,7 @@ class _FigmaCalendarPageState extends State<FigmaCalendarPage> {
   /// 페이지 이동 헬퍼
   void _jumpToPage(int offset) {
     if (_pageController.hasClients) {
+      // 현재 페이지를 기준으로 상대적 이동
       final currentPage = _pageController.page?.round() ?? _basePageIndex;
       _pageController.jumpToPage(currentPage + offset);
     }

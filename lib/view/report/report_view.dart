@@ -19,10 +19,6 @@ class ReportView extends StatelessWidget {
     List<PeriodCycle> periodCycles,
     DateTime today,
   ) {
-    if (periodCycles.isEmpty) {
-      return (avgCycle: '- 일', avgPeriod: '- 일');
-    }
-
     // 최근 6개월 전 날짜 계산 (월 계산 시 음수 처리)
     int targetYear = today.year;
     int targetMonth = today.month - 6;
@@ -62,7 +58,7 @@ class ReportView extends StatelessWidget {
       }
     }
 
-    // 평균 주기 길이 계산 (간격의 평균)
+    // 평균 주기 길이 계산 (간격이 1개 이상=기록 2건 이상 확보될 때만)
     String avgCycle;
     if (intervals.isNotEmpty) {
       final sum = intervals.reduce((a, b) => a + b);
@@ -80,7 +76,7 @@ class ReportView extends StatelessWidget {
       if (duration > 0) durations.add(duration);
     }
 
-    // 평균 생리 기간 계산 (주기 2개 미만이면 계산 불가)
+    // 평균 생리 기간 계산 (기록이 2건 이상일 때만 표시)
     String avgPeriod;
     if (sorted.length >= 2 && durations.isNotEmpty) {
       final sum = durations.reduce((a, b) => a + b);
