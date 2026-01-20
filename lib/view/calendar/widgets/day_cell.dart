@@ -177,7 +177,7 @@ class DayCell extends StatelessWidget {
                               if (hasRelationship) ...[
                                 const Icon(
                                   Icons.favorite,
-                                  size: 8,
+                                  size: 10,
                                   color: SymptomColors.relationship,
                                 ),
                                 if (hasRecord || hasMemo) const SizedBox(width: 1),
@@ -186,7 +186,7 @@ class DayCell extends StatelessWidget {
                               if (hasRecord) ...[
                                 const Icon(
                                   Icons.add_circle,
-                                  size: 8,
+                                  size: 10,
                                   color: SymptomColors.symptomBase,
                                 ),
                                 if (hasMemo) const SizedBox(width: 1),
@@ -195,7 +195,7 @@ class DayCell extends StatelessWidget {
                               if (hasMemo)
                                 const Icon(
                                   Icons.assignment,
-                                  size: 8,
+                                  size: 10,
                                   color: AppColors.textSecondary,
                                 ),
                             ],

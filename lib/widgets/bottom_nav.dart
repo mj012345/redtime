@@ -26,25 +26,25 @@ class BottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _NavItem(
                 icon: Icons.calendar_month,
-                label: '달력',
+                label: 'calendar',
                 selected: current == NavTab.calendar,
                 onTap: () => onTap(NavTab.calendar),
               ),
               _NavItem(
                 icon: Icons.insights,
-                label: '리포트',
+                label: 'report',
                 selected: current == NavTab.report,
                 onTap: () => onTap(NavTab.report),
               ),
               _NavItem(
                 icon: Icons.person,
-                label: 'MY',
+                label: 'my',
                 selected: current == NavTab.my,
                 onTap: () => onTap(NavTab.my),
               ),

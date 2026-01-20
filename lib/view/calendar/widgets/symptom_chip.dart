@@ -24,35 +24,29 @@ class SymptomChip extends StatelessWidget {
     final isMemo = label == '메모';
     
     // 선택된 경우: 좋음은 초록색, 그 외는 보라색
-    // 선택되지 않은 경우: 기본 색상
+    // 선택되지 않은 경우: 흰색 배경
     final fillColor = selected
         ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.3): SymptomColors.symptomBase.withValues(alpha: 0.2))
-        : (disabled ? AppColors.disabled : Colors.white);
+        : Colors.white;
     
     final borderColor = selected
         ? (isGood 
             ? SymptomColors.goodSymptom.withValues(alpha: 0.5)
             : SymptomColors.symptomBase.withValues(alpha: 0.5))
-        : (disabled
-              ? AppColors.border.withValues(alpha: 0.5)
-              : AppColors.border);
+        : AppColors.border;
     
     final textColor = selected
         ? (isGood 
             ? const Color(0xFF2E7D32) // 초록색 배경에 어울리는 진한 초록색 텍스트
             : const Color(0xFF8E7CC3)) // 보라색 배경에 어울리는 진한 보라색 텍스트
-        : (disabled
-              ? AppColors.textSecondary.withValues(alpha: 0.5)
-              : AppColors.textSecondary);
+        : AppColors.textPrimary.withValues(alpha: 0.8);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         key: Key('symptom_$label'),
         borderRadius: BorderRadius.circular(30),
-        onTap: disabled
-            ? null
-            : (isMemo && onMemoTap != null ? onMemoTap : onTap),
+        onTap: isMemo && onMemoTap != null ? onMemoTap : onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

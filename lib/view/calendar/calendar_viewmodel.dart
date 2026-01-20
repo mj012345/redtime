@@ -186,9 +186,6 @@ class CalendarViewModel extends ChangeNotifier with WidgetsBindingObserver {
     SymptomCategory('기분', [
       ['좋음', '짜증', '불안', '우울', '슬픔', '분노'],
     ]),
-    SymptomCategory('기타', [
-      ['관계', '메모'],
-    ]),
   ];
 
   // 날짜 키 변환 (yyyy-MM-dd)

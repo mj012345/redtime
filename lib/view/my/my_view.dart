@@ -161,20 +161,6 @@ class MyView extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.lg),
-                              // 이름
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      displayName,
-                                      style: AppTextStyles.body.copyWith(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.md),
                               // 이메일
                               Row(
                                 children: [

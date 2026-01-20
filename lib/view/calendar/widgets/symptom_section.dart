@@ -72,10 +72,9 @@ class _Category extends StatelessWidget {
       children: [
         Text(
           title,
-          style: AppTextStyles.body.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.secondary,
+          style: AppTextStyles.title.copyWith(
+            fontWeight: FontWeight.w300,
+            color: AppColors.textPrimary.withValues(alpha: 0.4),
           ),
         ),
         const SizedBox(height: 3),

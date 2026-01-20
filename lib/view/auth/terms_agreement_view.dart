@@ -55,13 +55,12 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                   '서비스 이용을 위한\n약관 동의가 필요해요',
                   style: AppTextStyles.title.copyWith(
                     fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xl),
-                Expanded(
-                  child: SingleChildScrollView(
+                const Spacer(),
+                SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -78,7 +77,7 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                           },
                           isBold: true,
                         ),
-                        const Divider(height: AppSpacing.xl),
+                        const SizedBox(height: AppSpacing.xs),
                         // 이용약관 동의
                         _buildCheckbox(
                           value: _termsAgreed,
@@ -96,7 +95,7 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                             );
                           },
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.xs),
                         // 개인정보처리방침 동의
                         _buildCheckbox(
                           value: _privacyAgreed,
@@ -114,47 +113,45 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                             );
                           },
                         ),
-                        const SizedBox(height: AppSpacing.xl * 2),
-                        // 동의하고 시작하기 버튼
-                        SizedBox(
-                          width: double.infinity,
-                          height: 58,
-                          child: ElevatedButton(
-                            onPressed:
-                                (_termsAgreed && _privacyAgreed && !_isLoading)
-                                ? () => _handleAgreement(context)
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              disabledBackgroundColor: AppColors.textDisabled,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                      ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                // 동의하고 시작하기 버튼
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: (_termsAgreed && _privacyAgreed && !_isLoading)
+                        ? () => _handleAgreement(context)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.textDisabled,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
                               ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : Text(
-                                    '동의하고 시작하기',
-                                    style: AppTextStyles.body.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                          )
+                        : Text(
+                            '동의하고 시작하기',
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -173,28 +170,58 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
     bool isBold = false,
   }) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Checkbox(
-          value: value,
-          onChanged: onChanged,
-          activeColor: AppColors.primary,
-        ),
         Expanded(
           child: GestureDetector(
             onTap: onLinkTap,
             child: Text(
               label,
               style: AppTextStyles.body.copyWith(
-                fontSize: isBold ? 16 : 14,
-                fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-                color: onLinkTap != null
-                    ? AppColors.primary
+                fontSize: isBold ? 18 : 14,
+                fontWeight: isBold ? FontWeight.w600 : FontWeight.w500,
+              color: onLinkTap != null
+                  ? AppColors.primary
                     : AppColors.textPrimary,
                 decoration: onLinkTap != null
                     ? TextDecoration.underline
                     : TextDecoration.none,
               ),
             ),
+          ),
+        ),
+        SizedBox(
+          width: 32, // 고정 너비를 확보하여 정렬 기준 마련
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: isBold 
+              ? Transform.scale(
+                  scale: 1.1,
+                  alignment: Alignment.centerRight, // 오른쪽 기준으로 스케일 조정
+                  child: Checkbox(
+                    value: value,
+                    onChanged: onChanged,
+                    activeColor: AppColors.primary,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(5)),
+                    ),
+                    side: BorderSide(color: AppColors.textPrimary, width: 1.5),
+                  ),
+                )
+              : Transform.scale(
+                  scale: 1.0,
+                  alignment: Alignment.centerRight, // 오른쪽 기준으로 스케일 조정
+                  child: Checkbox(
+                    value: value,
+                    onChanged: onChanged,
+                    activeColor: AppColors.primary,
+                    visualDensity: VisualDensity.compact,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                    ),
+                    side: BorderSide(color: AppColors.textPrimary.withValues(alpha: 0.5), width: 1.0),
+                  ),
+                ),
           ),
         ),
       ],

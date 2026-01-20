@@ -165,9 +165,9 @@ class ReportView extends StatelessWidget {
 
     // 색상 정의 (기존 색상 사용)
     final colors = [
-      AppColors.primary,
-      const Color(0xFFFE7A36),
-      const Color(0xFF84A9B6),
+      SymptomColors.frequentHigh,
+      SymptomColors.frequentMid,
+      SymptomColors.frequentLow,
     ];
 
     // SymptomStatItemData 리스트 생성

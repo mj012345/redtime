@@ -126,7 +126,7 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(32),
                   child: Image.asset(
-                    'assets/icons/app_icon.png',
+                    'assets/icons/redtime_logo_vertical.png',
                     fit: BoxFit.cover,
                   ),
                 ),
