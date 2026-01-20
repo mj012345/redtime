@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart' hide Badge;
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 import 'package:red_time_app/theme/app_colors.dart';
@@ -143,34 +144,20 @@ class TodayCard extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
+                _buildActionButton(
+                  icon: CupertinoIcons.heart_fill,
+                  label: '사랑',
+                  color: SymptomColors.relationship,
+                  isActive: hasRelationship,
                   onTap: onRelationshipTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      hasRelationship ? Icons.favorite : Icons.favorite_border,
-                      size: 26,
-                      color: hasRelationship
-                          ? SymptomColors.relationship
-                          : AppColors.textDisabled.withValues(alpha: 0.5),
-                    ),
-                  ),
                 ),
-                const SizedBox(width: 4),
-                GestureDetector(
+                const SizedBox(width: 8),
+                _buildActionButton(
+                  icon: CupertinoIcons.doc_text_fill,
+                  label: '메모',
+                  color: SymptomColors.memo,
+                  isActive: hasMemo,
                   onTap: onMemoTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      hasMemo ? Icons.assignment : Icons.assignment_outlined,
-                      size: 26,
-                      color: hasMemo
-                          ? AppColors.textSecondary
-                          : AppColors.textDisabled.withValues(alpha: 0.5),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -249,6 +236,58 @@ class TodayCard extends StatelessWidget {
     }
 
     return '보통';
+  }
+
+  /// 원형 배경 안에 아이콘과 텍스트를 함께 배치한 액션 버튼
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isActive ? color.withValues(alpha: 0.08) : AppColors.background.withValues(alpha: 0.5),
+          border: Border.all(
+            color: isActive ? color.withValues(alpha: 0.1) : AppColors.border.withValues(alpha: 0.5),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.background.withValues(alpha: 0.8),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isActive ? color : AppColors.textDisabled.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              style: AppTextStyles.body.copyWith(
+                fontSize: 9,
+                color: isActive ? color : AppColors.textSecondary.withValues(alpha: 0.7),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   bool _sameDay(DateTime a, DateTime b) =>

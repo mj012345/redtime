@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:red_time_app/theme/app_colors.dart';
 
 class DayCell extends StatelessWidget {
@@ -11,6 +12,7 @@ class DayCell extends StatelessWidget {
   final bool isExpectedPeriod;
   final bool isExpectedFertile;
   final bool isExpectedPeriodStart;
+  final bool isExpectedOvulation;
   final bool isToday;
   final bool isSelected;
   final bool hasRecord;
@@ -34,6 +36,7 @@ class DayCell extends StatelessWidget {
     required this.isExpectedPeriod,
     required this.isExpectedFertile,
     required this.isExpectedPeriodStart,
+    required this.isExpectedOvulation,
     required this.isToday,
     required this.isSelected,
     required this.hasRecord,
@@ -127,7 +130,7 @@ class DayCell extends StatelessWidget {
                 right: 3,
                 top: 0,
               ),
-            child: Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -162,6 +165,8 @@ class DayCell extends StatelessWidget {
                               isFertileStart: isFertileStart,
                               isExpectedPeriod: showExpectedPeriod,
                               isExpectedPeriodStart: isExpectedPeriodStart,
+                              isExpectedOvulation: isExpectedOvulation,
+                              isExpectedFertile: showExpectedFertile,
                             ),
                           ),
                   ),
@@ -194,9 +199,9 @@ class DayCell extends StatelessWidget {
                               // 메모 아이콘
                               if (hasMemo)
                                 const Icon(
-                                  Icons.assignment,
+                                  CupertinoIcons.doc_text_fill,
                                   size: 10,
-                                  color: AppColors.textSecondary,
+                                  color: SymptomColors.memo,
                                 ),
                             ],
                           ),
@@ -219,6 +224,8 @@ class DayCell extends StatelessWidget {
     required bool isFertileStart,
     required bool isExpectedPeriod,
     required bool isExpectedPeriodStart,
+    required bool isExpectedOvulation,
+    required bool isExpectedFertile,
   }) {
     Widget? indicator;
     // 시작일과 종료일이 같은 경우 '시작/종료'로 표시
@@ -246,21 +253,28 @@ class DayCell extends StatelessWidget {
     } else if (isOvulation) {
       indicator = const Text(
         '배란일',
-        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
+        maxLines: 1,
+        overflow: TextOverflow.visible,
+      );
+    } else if (isExpectedOvulation) {
+      indicator = const Text(
+        '배란예정',
+        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
         '생리예정',
-        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
-    } else if (isFertile && !isOvulation && isFertileStart) {
+    } else if ((isFertile || isExpectedFertile) && !isOvulation && !isExpectedOvulation && isFertileStart) {
       indicator = const Text(
         '가임기',
-        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );

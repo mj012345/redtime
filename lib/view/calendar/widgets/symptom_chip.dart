@@ -38,7 +38,7 @@ class SymptomChip extends StatelessWidget {
     final textColor = selected
         ? (isGood 
             ? const Color(0xFF2E7D32) // 초록색 배경에 어울리는 진한 초록색 텍스트
-            : const Color(0xFF8E7CC3)) // 보라색 배경에 어울리는 진한 보라색 텍스트
+            : const Color(0xFFD46C56)) // 증상 색상에 어울리는 진한 톤
         : AppColors.textPrimary.withValues(alpha: 0.8);
 
     return Material(

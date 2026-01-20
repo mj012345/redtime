@@ -763,7 +763,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                       key: ValueKey(_visibleFirstMonthYear),
                       style: AppTextStyles.caption.copyWith(
                         fontSize: 9,
-                        color: AppColors.textPrimary.withValues(alpha: 0.8),
+                        color: AppColors.textPrimaryLight,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -835,7 +835,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                                   color: isToday
                                       ? AppColors.primary
                                       : AppColors.textPrimary.withValues(
-                                          alpha: 0.5,
+                                          alpha: 1,
                                         ),
                                   fontWeight: isToday
                                       ? FontWeight.w600
@@ -909,9 +909,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                             hasSymptom = true;
                             cellColor = isExample
                                 ? AppColors.textDisabled.withValues(alpha: 0.3)
-                                : AppColors.textDisabled.withValues(
-                                    alpha: 0.5,
-                                  ); // 진한 회색
+                                : SymptomColors.memo;
                           }
                         } else if (labelRow.isCategory) {
                           // 카테고리 행: 해당 카테고리의 증상 개수 확인

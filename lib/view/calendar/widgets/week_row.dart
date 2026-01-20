@@ -80,6 +80,8 @@ class WeekRow extends StatelessWidget {
                         expectedPeriodDays,
                         day,
                       ),
+                      isExpectedOvulation: expectedOvulationDay != null &&
+                          _sameDay(day, expectedOvulationDay!),
                       isToday: _sameDay(day, today),
                       isSelected:
                           selectedDay != null && _sameDay(day, selectedDay!),
