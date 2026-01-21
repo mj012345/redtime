@@ -556,7 +556,7 @@ class ReportView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  // 주기/증상 트래킹
+                  // 2. 증상 추적
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.md),
@@ -569,7 +569,7 @@ class ReportView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '주기/증상 트래킹',
+                          '증상 추적',
                           style: AppTextStyles.body.copyWith(
                             fontSize: AppTextStyles.title.fontSize,
                             fontWeight: FontWeight.w600,
@@ -580,10 +580,7 @@ class ReportView extends StatelessWidget {
                         // 데이터 확인: 증상 데이터나 주기 데이터가 있는지 확인
                         Builder(
                           builder: (context) {
-                            final hasData =
-                                symptomSelections.isNotEmpty ||
-                                vm.periodDays.isNotEmpty ||
-                                vm.fertileWindowDays.isNotEmpty;
+                            final hasData = symptomSelections.isNotEmpty;
 
                             return Stack(
                               children: [
@@ -673,7 +670,7 @@ class ReportView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  // 3. 주기 변동 그래프
+                  // 3. 생리 주기 변동
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.md),
@@ -686,7 +683,7 @@ class ReportView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '주기 변동 그래프',
+                          '생리주기 변동',
                           style: AppTextStyles.body.copyWith(
                             fontSize: AppTextStyles.title.fontSize,
                             fontWeight: FontWeight.w600,
@@ -780,17 +777,7 @@ class ReportView extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: BottomNav(
-        current: NavTab.report,
-        onTap: (tab) {
-          if (tab == NavTab.report) return;
-          if (tab == NavTab.calendar) {
-            Navigator.of(context).pushReplacementNamed('/calendar');
-          } else {
-            Navigator.of(context).pushReplacementNamed('/my');
-          }
-        },
-      ),
+
     );
   }
 }

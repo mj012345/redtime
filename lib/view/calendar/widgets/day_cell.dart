@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:red_time_app/theme/app_colors.dart';
 
-class DayCell extends StatelessWidget {
+class DayCell extends StatefulWidget {
   final DateTime date;
   final bool isOutsideMonth;
   final VoidCallback onTap;
@@ -16,9 +16,9 @@ class DayCell extends StatelessWidget {
   final bool isToday;
   final bool isSelected;
   final bool hasRecord;
-  final int symptomCount; // 증상 개수 (0이면 표시 안 함)
-  final bool hasMemo; // 메모 여부
-  final bool hasRelationship; // 관계(하트) 여부
+  final int symptomCount;
+  final bool hasMemo;
+  final bool hasRelationship;
   final bool isPeriodStart;
   final bool isPeriodEnd;
   final bool isFertileStart;
@@ -51,31 +51,72 @@ class DayCell extends StatelessWidget {
   });
 
   @override
+  State<DayCell> createState() => _DayCellState();
+}
+
+class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 0.2, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isExpectedPeriod || widget.isExpectedFertile) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(DayCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.isExpectedPeriod || widget.isExpectedFertile) &&
+        !(_controller.isAnimating)) {
+      _controller.repeat(reverse: true);
+    } else if (!(widget.isExpectedPeriod || widget.isExpectedFertile) &&
+        _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final showPeriod = !isOutsideMonth && isPeriod;
-    final showFertile = !isOutsideMonth && isFertile;
-    final showExpectedPeriod = !isOutsideMonth && isExpectedPeriod;
-    final showExpectedFertile = !isOutsideMonth && isExpectedFertile;
-    final showOvulation = !isOutsideMonth && isOvulation;
-    final showSelected = !isOutsideMonth && isSelected;
+    final showPeriod = !widget.isOutsideMonth && widget.isPeriod;
+    final showFertile = !widget.isOutsideMonth && widget.isFertile;
+    final showExpectedPeriod = !widget.isOutsideMonth && widget.isExpectedPeriod;
+    final showExpectedFertile = !widget.isOutsideMonth && widget.isExpectedFertile;
+    final showOvulation = !widget.isOutsideMonth && widget.isOvulation;
+    final showSelected = !widget.isOutsideMonth && widget.isSelected;
 
     Color? bgColor;
 
-    // 오늘 이후 날짜인지 확인
-    final isFutureDate =
-        today != null &&
-        !isOutsideMonth &&
+    final isFutureDate = widget.today != null &&
+        !widget.isOutsideMonth &&
         DateTime(
-          date.year,
-          date.month,
-          date.day,
-        ).isAfter(DateTime(today!.year, today!.month, today!.day));
+          widget.date.year,
+          widget.date.month,
+          widget.date.day,
+        ).isAfter(DateTime(widget.today!.year, widget.today!.month, widget.today!.day));
 
-    Color textColor = isOutsideMonth
+    Color textColor = widget.isOutsideMonth
         ? AppColors.textDisabled.withValues(alpha: 0.5)
         : isFutureDate
-        ? AppColors.textPrimary.withValues(alpha: 0.5)
-        : AppColors.textPrimary;
+            ? AppColors.textPrimary.withValues(alpha: 0.5)
+            : AppColors.textPrimary;
     Color? borderColor;
 
     if (showPeriod) {
@@ -83,37 +124,67 @@ class DayCell extends StatelessWidget {
       textColor = AppColors.textPrimary;
     } else if (showFertile) {
       bgColor = SymptomColors.fertile;
-    } else if (showExpectedPeriod) {
-      bgColor = SymptomColors.period.withValues(alpha: 0.3);
-    } else if (showExpectedFertile) {
-      bgColor = SymptomColors.fertile.withValues(alpha: 0.3);
     }
+
     if (showSelected) {
-      // 오늘 이후 날짜는 회색 테두리, 그 외는 기본 primary 색상
       borderColor = isFutureDate ? AppColors.textDisabled : AppColors.primary;
     }
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // 배경 애니메이션 처리 (예상일일 때만)
+          if (showExpectedPeriod || showExpectedFertile)
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: FadeTransition(
+                  opacity: _animation,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: showExpectedPeriod
+                          ? SymptomColors.period
+                          : SymptomColors.fertile,
+                      borderRadius: BorderRadius.only(
+                        topLeft: widget.isPeriodStart || widget.isFertileStart
+                            ? const Radius.circular(8)
+                            : Radius.zero,
+                        bottomLeft: widget.isPeriodStart || widget.isFertileStart
+                            ? const Radius.circular(8)
+                            : Radius.zero,
+                        topRight: widget.isPeriodEnd || widget.isFertileEnd
+                            ? const Radius.circular(8)
+                            : Radius.zero,
+                        bottomRight: widget.isPeriodEnd || widget.isFertileEnd
+                            ? const Radius.circular(8)
+                            : Radius.zero,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Container(
             width: double.infinity,
             height: double.infinity,
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.only(
-                topLeft: (showPeriod && isPeriodStart) || (showFertile && isFertileStart)
+                topLeft: (showPeriod && widget.isPeriodStart) ||
+                        (showFertile && widget.isFertileStart)
                     ? const Radius.circular(8)
                     : Radius.zero,
-                bottomLeft: (showPeriod && isPeriodStart) || (showFertile && isFertileStart)
+                bottomLeft: (showPeriod && widget.isPeriodStart) ||
+                        (showFertile && widget.isFertileStart)
                     ? const Radius.circular(8)
                     : Radius.zero,
-                topRight: (showPeriod && isPeriodEnd) || (showFertile && isFertileEnd)
+                topRight: (showPeriod && widget.isPeriodEnd) ||
+                        (showFertile && widget.isFertileEnd)
                     ? const Radius.circular(8)
                     : Radius.zero,
-                bottomRight: (showPeriod && isPeriodEnd) || (showFertile && isFertileEnd)
+                bottomRight: (showPeriod && widget.isPeriodEnd) ||
+                        (showFertile && widget.isFertileEnd)
                     ? const Radius.circular(8)
                     : Radius.zero,
               ),
@@ -135,69 +206,65 @@ class DayCell extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 1),
-                  // 1. 날짜 (고정 위치)
                   SizedBox(
                     height: 14,
                     child: Center(
                       child: Text(
-                        '${date.day}',
+                        '${widget.date.day}',
                         style: TextStyle(
-                          fontSize: isToday ? 12 : 11,
-                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w300,
+                          fontSize: widget.isToday ? 12 : 11,
+                          fontWeight:
+                              widget.isToday ? FontWeight.w700 : FontWeight.w300,
                           color: textColor,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 3),
-                  // 2. 텍스트 표시 (고정 높이 영역)
                   SizedBox(
                     height: 12,
-                    child: isOutsideMonth
+                    child: widget.isOutsideMonth
                         ? const SizedBox.shrink()
                         : Center(
                             child: _buildMiddleIndicator(
                               isPeriod: showPeriod,
-                              isPeriodStart: isPeriodStart,
-                              isPeriodEnd: isPeriodEnd,
+                              isPeriodStart: widget.isPeriodStart,
+                              isPeriodEnd: widget.isPeriodEnd,
                               isFertile: showFertile,
                               isOvulation: showOvulation,
-                              isFertileStart: isFertileStart,
+                              isFertileStart: widget.isFertileStart,
                               isExpectedPeriod: showExpectedPeriod,
-                              isExpectedPeriodStart: isExpectedPeriodStart,
-                              isExpectedOvulation: isExpectedOvulation,
+                              isExpectedPeriodStart: widget.isExpectedPeriodStart,
+                              isExpectedOvulation: widget.isExpectedOvulation,
                               isExpectedFertile: showExpectedFertile,
                             ),
                           ),
                   ),
-                  // 3. 아이콘 (고정 높이 영역)
                   SizedBox(
                     height: 12,
-                    child: isOutsideMonth
+                    child: widget.isOutsideMonth
                         ? const SizedBox.shrink()
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // 하트 아이콘 (관계)
-                              if (hasRelationship) ...[
+                              if (widget.hasRelationship) ...[
                                 const Icon(
                                   Icons.favorite,
                                   size: 10,
                                   color: SymptomColors.relationship,
                                 ),
-                                if (hasRecord || hasMemo) const SizedBox(width: 1),
+                                if (widget.hasRecord || widget.hasMemo)
+                                  const SizedBox(width: 1),
                               ],
-                              // 증상 아이콘
-                              if (hasRecord) ...[
+                              if (widget.hasRecord) ...[
                                 const Icon(
-                                  Icons.add_circle,
+                                  Icons.local_hospital,
                                   size: 10,
                                   color: SymptomColors.symptomBase,
                                 ),
-                                if (hasMemo) const SizedBox(width: 1),
+                                if (widget.hasMemo) const SizedBox(width: 1),
                               ],
-                              // 메모 아이콘
-                              if (hasMemo)
+                              if (widget.hasMemo)
                                 const Icon(
                                   CupertinoIcons.doc_text_fill,
                                   size: 10,
@@ -228,53 +295,62 @@ class DayCell extends StatelessWidget {
     required bool isExpectedFertile,
   }) {
     Widget? indicator;
-    // 시작일과 종료일이 같은 경우 '시작/종료'로 표시
     if (isPeriod && isPeriodStart && isPeriodEnd) {
       indicator = const Text(
         '시작/종료',
-        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w800),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w800),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodStart) {
       indicator = const Text(
         '시작',
-        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodEnd) {
       indicator = const Text(
         '종료',
-        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isOvulation) {
       indicator = const Text(
         '배란일',
-        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isExpectedOvulation) {
       indicator = const Text(
         '배란예정',
-        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isExpectedPeriod && isExpectedPeriodStart) {
       indicator = const Text(
         '생리예정',
-        style: TextStyle(fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
-    } else if ((isFertile || isExpectedFertile) && !isOvulation && !isExpectedOvulation && isFertileStart) {
+    } else if ((isFertile || isExpectedFertile) &&
+        !isOvulation &&
+        !isExpectedOvulation &&
+        isFertileStart) {
       indicator = const Text(
         '가임기',
-        style: TextStyle(fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: 8, color: Color(0xFF55B292), fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );

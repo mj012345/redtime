@@ -137,6 +137,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     );
   }
 
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   /// 스크롤 이벤트 처리
   void _onScroll() {
     // 툴팁 닫기
@@ -236,24 +239,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         oldWidget.fertileWindowDays != widget.fertileWindowDays ||
         oldWidget.isExample != widget.isExample ||
         oldWidget.symptomCatalog != widget.symptomCatalog) {
-      // 전체 데이터 범위가 변경되면 초기화 (최근 60일부터)
-      final endDate = DateTime(
-        widget.endDate.year,
-        widget.endDate.month,
-        widget.endDate.day,
-      );
-
-      // 최초 화면 진입 시에는 항상 최근 60일만 표시
-      _displayedStartDate = endDate.subtract(
-        const Duration(days: _initialDays - 1),
-      );
-
-      // 실제 시작 날짜보다 이전으로 가지 않도록 제한
-      final maxStartDate = _getMaxStartDate();
-      if (_displayedStartDate.isBefore(maxStartDate)) {
-        _displayedStartDate = maxStartDate;
-      }
-
       _updateCache();
     }
   }
@@ -387,15 +372,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
     // 선택된 카테고리에 해당하는 증상만 표시
     if (labelRow != null) {
-      if (labelRow.label == '생리일') {
-        if (isPeriodDay) {
-          symptomTexts.add('생리일');
-        }
-      } else if (labelRow.label == '가임기') {
-        if (isFertileDay) {
-          symptomTexts.add('가임기');
-        }
-      } else if (labelRow.label == '메모') {
+      if (labelRow.label == '메모') {
         final memos = _cachedMemos ?? widget.memos;
         final dateKey =
             '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -628,10 +605,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   List<_LabelRow> _generateLabelRows() {
     final rows = <_LabelRow>[];
 
-    // 고정 레이블
-    rows.add(_LabelRow(label: '생리일', isCategory: false));
-    rows.add(_LabelRow(label: '가임기', isCategory: false));
-
     // 예시 모드인 경우 모든 카테고리 표시
     if (widget.isExample) {
       for (final category in widget.symptomCatalog) {
@@ -726,15 +699,18 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       _updateVisibleMonth();
     }
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        // 세로/가로 스크롤 모두 감지하여 툴팁만 닫기 (셀 선택 상태는 유지)
-        if (_tooltipOverlay != null) {
-          _hideTooltipOnly();
-        }
-        return false; // 다른 리스너도 처리할 수 있도록 false 반환
-      },
-      child: Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            // 세로/가로 스크롤 모두 감지하여 툴팁만 닫기 (셀 선택 상태는 유지)
+            if (_tooltipOverlay != null) {
+              _hideTooltipOnly();
+            }
+            return false; // 다른 리스너도 처리할 수 있도록 false 반환
+          },
+          child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 레이블 컬럼 (고정)
@@ -747,24 +723,27 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                 width: 30,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: animation.drive(Tween(begin: 0.9, end: 1.0)),
-                          child: child,
+                  child: RepaintBoundary(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: animation.drive(Tween(begin: 0.9, end: 1.0)),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        _visibleFirstMonthYear ?? '',
+                        key: ValueKey(_visibleFirstMonthYear),
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 9,
+                          color: AppColors.textPrimaryLight,
+                          fontWeight: FontWeight.w700,
                         ),
-                      );
-                    },
-                    child: Text(
-                      _visibleFirstMonthYear ?? '',
-                      key: ValueKey(_visibleFirstMonthYear),
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 9,
-                        color: AppColors.textPrimaryLight,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -794,16 +773,45 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
           SizedBox(width: 5),
           // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
           Expanded(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: RepaintBoundary(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                child: Stack(
                 children: [
-                  // 날짜 헤더 (셀 높이 16 + 하단 간격 6 = 22)
-                  SizedBox(
-                    height: 22,
+                  // 배경 하이라이트 레이어 (생리일/가임기)
+                  Positioned.fill(
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: dates.map((date) {
+                        final isPeriod = (_cachedPeriodDays ?? widget.periodDays).any((d) => _sameDay(d, date));
+                        final isFertile = (_cachedFertileWindowDays ?? widget.fertileWindowDays).any((d) => _sameDay(d, date));
+                        
+                        Color? barColor;
+                        if (isPeriod) {
+                          barColor = widget.isExample 
+                              ? AppColors.textDisabled.withValues(alpha: 0.1)
+                              : SymptomColors.period.withValues(alpha: 0.5);
+                        } else if (isFertile) {
+                          barColor = widget.isExample
+                              ? AppColors.textDisabled.withValues(alpha: 0.05)
+                              : SymptomColors.fertile.withValues(alpha: 0.5);
+                        }
+
+                        return Container(
+                          width: 22, // 셀(16) + 오른쪽 간격(6)
+                          color: barColor,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 날짜 헤더 (셀 높이 16 + 하단 간격 6 = 22)
+                      SizedBox(
+                        height: 22,
+                        child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: dates.asMap().entries.map((entry) {
                         final index = entry.key;
@@ -815,16 +823,10 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
                         // 오늘 날짜인지 확인
                         final today = DateTime.now();
-                        final isToday =
-                            date.year == today.year &&
-                            date.month == today.month &&
-                            date.day == today.day;
-
-                        // 월의 1일인지 확인
-                        final isFirstDay = date.day == 1;
+                        final isToday = _sameDay(date, today);
 
                         return Padding(
-                          padding: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
                           child: SizedBox(
                             width: 16,
                             child: Center(
@@ -868,7 +870,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                             <String>{};
 
                         bool hasSymptom = false;
-                        Color cellColor = AppColors.disabled;
+                        Color cellColor = Colors.transparent;
 
                         // 생리일과 가임기는 별도 처리
                         final periodDays =
@@ -878,31 +880,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                             widget.fertileWindowDays;
                         final isExample = _cachedIsExample ?? widget.isExample;
 
-                        if (labelRow.label == '생리일') {
-                          hasSymptom = periodDays.any(
-                            (d) =>
-                                d.year == date.year &&
-                                d.month == date.month &&
-                                d.day == date.day,
-                          );
-                          if (hasSymptom) {
-                            cellColor = isExample
-                                ? AppColors.textDisabled.withValues(alpha: 0.3)
-                                : SymptomColors.period;
-                          }
-                        } else if (labelRow.label == '가임기') {
-                          hasSymptom = fertileWindowDays.any(
-                            (d) =>
-                                d.year == date.year &&
-                                d.month == date.month &&
-                                d.day == date.day,
-                          );
-                          if (hasSymptom) {
-                            cellColor = isExample
-                                ? AppColors.textDisabled.withValues(alpha: 0.2)
-                                : SymptomColors.fertile;
-                          }
-                        } else if (labelRow.label == '메모') {
+                        if (labelRow.label == '메모') {
                           final memos = _cachedMemos ?? widget.memos;
                           final memo = memos[dateKey];
                           if (memo != null && memo.trim().isNotEmpty) {
@@ -955,16 +933,6 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                               hasSymptom = true;
                             }
                           }
-                        } else {
-                          // 일반 증상은 symptomData에서 확인 (이 경우는 카테고리가 표시되지 않으므로 사용하지 않음)
-                          // 하지만 혹시 모를 경우를 위해 처리
-                          hasSymptom = symptoms.contains(labelRow.label);
-                          if (hasSymptom) {
-                            // 증상이 1개인 경우로 처리
-                            cellColor = SymptomColors.symptomBase.withValues(
-                              alpha: 0.3,
-                            );
-                          }
                         }
 
                         // 셀 키 생성 (날짜_레이블)
@@ -981,13 +949,13 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         // 셀 색상에 따라 테두리 색상 결정
                         Color borderColor = SymptomColors.border;
                         if (isSelected) {
-                          if (cellColor != AppColors.disabled) {
-                            // 셀 색상보다 약간 진한 색상으로 테두리
+                          if (hasSymptom) {
+                            // 증상이 있는 셀: 셀 색상보다 약간 진한 색상으로 테두리
                             borderColor = _darkenColor(cellColor, 0.1);
                           } else {
-                            // 증상이 없는 셀: 셀 색상보다 약간 진한 회색으로 테두리
+                            // 증상이 없는 셀: 기본 테두리보다 약간 진한 회색으로 테두리
                             borderColor = _darkenColor(
-                              AppColors.disabled,
+                              SymptomColors.border,
                               0.15,
                             );
                           }
@@ -1002,7 +970,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                               _hideTooltipOnly();
                             },
                             child: Padding(
-                              padding: EdgeInsets.only(right: 6, bottom: 6),
+                              padding: const EdgeInsets.fromLTRB(3, 0, 3, 6),
                               child: Builder(
                                 builder: (cellContext) {
                                   return GestureDetector(
@@ -1088,9 +1056,157 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                   }),
                 ],
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ],
+),
+    ),
+    _buildLegend(),
+  ],
+);
+}
+
+  Widget _buildLegend() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Center(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+          // 첫 번째 줄: 생리일, 가임기, 관계
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _legendItem(
+                widget.isExample
+                    ? AppColors.textDisabled.withValues(alpha: 0.3)
+                    : SymptomColors.period,
+                '생리일',
+                width: 14,
+                height: 10,
+              ),
+              _legendItem(
+                widget.isExample
+                    ? AppColors.textDisabled.withValues(alpha: 0.2)
+                    : SymptomColors.fertile,
+                '가임기',
+                width: 14,
+                height: 10,
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.favorite,
+                    size: 10,
+                    color: SymptomColors.relationship,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '사랑',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 9,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 두 번째 줄: 나머지는 (좋음, 증상, 메모)
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _legendItem(
+                widget.isExample
+                    ? AppColors.textDisabled.withValues(alpha: 0.3)
+                    : SymptomColors.goodSymptom,
+                '좋음',
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _colorBox(
+                    widget.isExample
+                        ? AppColors.textDisabled.withValues(alpha: 0.1)
+                        : SymptomColors.symptomBase.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(width: 2),
+                  _colorBox(
+                    widget.isExample
+                        ? AppColors.textDisabled.withValues(alpha: 0.2)
+                        : SymptomColors.symptomBase.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 2),
+                  _colorBox(
+                    widget.isExample
+                        ? AppColors.textDisabled.withValues(alpha: 0.3)
+                        : SymptomColors.symptomBase,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '증상(적음~많음)',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 9,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              _legendItem(
+                widget.isExample
+                    ? AppColors.textDisabled.withValues(alpha: 0.3)
+                    : SymptomColors.memo,
+                '메모',
+              ),
+            ],
           ),
         ],
+      ),
+      ),
+    );
+  }
+
+  Widget _legendItem(Color color, String label, {double width = 8, double height = 8}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _colorBox(color, width: width, height: height),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 9,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _colorBox(Color color, {double width = 8, double height = 8}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(
+          color: color == Colors.transparent
+              ? AppColors.border
+              : color.withValues(alpha: 0.1),
+          width: 0.5,
+        ),
       ),
     );
   }

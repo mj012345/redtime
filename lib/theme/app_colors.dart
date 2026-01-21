@@ -31,10 +31,10 @@ class SymptomColors {
   static const Color period = Color(0xFFFEEEEE); // 생리일
   static const Color fertile = Color(0xFFECFDF5); // 가임기
   static const Color border = Color(0xFFE7E7E7); // 테두리
-  static const Color symptomBase = Color(0xFFFF9277); // 증상 기본 색상
+  static const Color symptomBase = Color(0xFFFFDD85); // 증상 기본 색상
   static const Color goodSymptom = Color(0xFFACEEBB); // 좋음 증상 색상
   static const Color relationship = Color(0xFFFF80AB); // 관계(하트) 색상
-  static const Color memo = Color(0xFFD5B9FE); // 메모 색상
+  static const Color memo = Color(0xFF91C2F4); // 메모 색상
   static const Color frequentHigh = Color(0xFFF27676); // 가장 많이 기록된 증상 색상
   static const Color frequentMid = Color(0xFFF59D6E); // 두 번째 많이 기록된 증상 색상
   static const Color frequentLow = Color(0xFFF8DC82); // 세 번째 많이 기록된 증상 색상

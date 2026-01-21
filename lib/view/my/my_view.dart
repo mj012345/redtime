@@ -233,17 +233,7 @@ class _MyViewState extends State<MyView> {
           );
         },
       ),
-      bottomNavigationBar: BottomNav(
-        current: NavTab.my,
-        onTap: (tab) {
-          if (tab == NavTab.my) return;
-          if (tab == NavTab.calendar) {
-            Navigator.of(context).pushReplacementNamed('/calendar');
-          } else {
-            Navigator.of(context).pushReplacementNamed('/report');
-          }
-        },
-      ),
+
       backgroundColor: AppColors.background,
     );
   }

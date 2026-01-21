@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:red_time_app/theme/app_colors.dart';
-import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 
 class AppAlertDialog extends StatelessWidget {

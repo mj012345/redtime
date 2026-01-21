@@ -66,14 +66,14 @@ class MonthHeader extends StatelessWidget {
               width: 60,
               height: 30,
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.textDisabled),
-                borderRadius: BorderRadius.circular(50),
+                borderRadius: BorderRadius.circular(10),
+                color: AppColors.textDisabled.withValues(alpha: 0.1),
               ),
               child: Center(
                 child: Text(
-                  'TODAY',
+                  '오늘',
                   style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textDisabled,
+                    color: AppColors.textPrimary.withValues(alpha: 0.9),
                     fontSize: 12,
                   ),
                 ),

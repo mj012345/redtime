@@ -417,17 +417,7 @@ class _CalendarViewState extends State<CalendarView> {
                 ],
               ),
             ),
-            bottomNavigationBar: BottomNav(
-              current: NavTab.calendar,
-              onTap: (tab) {
-                if (tab == NavTab.calendar) return;
-                if (tab == NavTab.report) {
-                  Navigator.of(context).pushReplacementNamed('/report');
-                } else if (tab == NavTab.my) {
-                  Navigator.of(context).pushReplacementNamed('/my');
-                }
-              },
-            ),
+
           );
         },
       );

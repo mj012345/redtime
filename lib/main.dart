@@ -22,6 +22,8 @@ import 'package:red_time_app/view/calendar/calendar_view.dart';
 import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
 import 'package:red_time_app/view/my/my_view.dart';
 import 'package:red_time_app/view/report/report_view.dart';
+import 'package:red_time_app/view/main_view.dart';
+import 'package:red_time_app/view/main_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,6 +94,7 @@ class MyApp extends StatelessWidget {
             );
           },
         ),
+        ChangeNotifierProvider(create: (_) => MainViewModel()),
       ],
       child: MaterialApp(
         title: 'Period Tracker',
@@ -126,7 +129,7 @@ class MyApp extends StatelessWidget {
               AuthError(message: final msg) => LoginView(errorMessage: msg),
               Authenticated(isNewUser: final isNewUser) => isNewUser
                   ? const TermsAgreementView() 
-                  : const CalendarView(),
+                  : const MainView(),
             };
           },
         ),
@@ -147,12 +150,12 @@ class MyApp extends StatelessWidget {
               }
               return noTransition(const TermsAgreementView());
             case '/report':
-              return noTransition(const ReportView());
+              return noTransition(const MainView());
             case '/my':
-              return noTransition(const MyView());
+              return noTransition(const MainView());
             case '/calendar':
             default:
-              return noTransition(const CalendarView());
+              return noTransition(const MainView());
           }
         },
       ),
