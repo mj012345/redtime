@@ -94,7 +94,7 @@ class SignupCompleteView extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: Text(
-                      '홈화면으로 이동',
+                      '시작하기',
                       style: AppTextStyles.body.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

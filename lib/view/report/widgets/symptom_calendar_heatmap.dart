@@ -812,47 +812,47 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                       SizedBox(
                         height: 22,
                         child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: dates.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final date = entry.value;
-                        final isFirstOfMonth =
-                            index == 0 ||
-                            date.day == 1 ||
-                            (index > 0 && dates[index - 1].month != date.month);
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: dates.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final date = entry.value;
+                            final isFirstOfMonth =
+                                index == 0 ||
+                                date.day == 1 ||
+                                (index > 0 && dates[index - 1].month != date.month);
 
-                        // 오늘 날짜인지 확인
-                        final today = DateTime.now();
-                        final isToday = _sameDay(date, today);
+                            // 오늘 날짜인지 확인
+                            final today = DateTime.now();
+                            final isToday = _sameDay(date, today);
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: SizedBox(
-                            width: 16,
-                            child: Center(
-                              child: Text(
-                                _formatDate(date, isFirstOfMonth),
-                                style: AppTextStyles.caption.copyWith(
-                                  fontSize: 9,
-                                  color: isToday
-                                      ? AppColors.primary
-                                      : AppColors.textPrimary.withValues(
-                                          alpha: 1,
-                                        ),
-                                  fontWeight: isToday
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: SizedBox(
+                                width: 16,
+                                child: Center(
+                                  child: Text(
+                                    _formatDate(date, isFirstOfMonth),
+                                    style: AppTextStyles.caption.copyWith(
+                                      fontSize: 9,
+                                      color: isToday
+                                          ? AppColors.primary
+                                          : AppColors.textPrimary.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                      fontWeight: isToday
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.clip,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.clip,
                               ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  // 날짜 그리드
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      // 날짜 그리드
                   ...labelRows.asMap().entries.map((labelEntry) {
                     final labelRow = labelEntry.value;
 
@@ -1053,7 +1053,9 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
                         );
                       }).toList(),
                     );
-                  }),
+                  }).toList(),
+                  // 날짜 헤더
+
                 ],
               ),
             ],

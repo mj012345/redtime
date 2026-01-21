@@ -460,8 +460,7 @@ class ReportView extends StatelessWidget {
                           '자주 기록된 증상',
                           style: AppTextStyles.body.copyWith(
                             fontSize: AppTextStyles.title.fontSize,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -572,8 +571,7 @@ class ReportView extends StatelessWidget {
                           '증상 추적',
                           style: AppTextStyles.body.copyWith(
                             fontSize: AppTextStyles.title.fontSize,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -686,8 +684,7 @@ class ReportView extends StatelessWidget {
                           '생리주기 변동',
                           style: AppTextStyles.body.copyWith(
                             fontSize: AppTextStyles.title.fontSize,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),

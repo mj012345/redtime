@@ -28,7 +28,7 @@ class SummaryCard extends StatelessWidget {
               Text(
                 label,
                 style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textPrimary,
                   fontSize: 14,
                 ),
               ),

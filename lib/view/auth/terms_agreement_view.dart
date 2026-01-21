@@ -5,7 +5,8 @@ import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
 import 'package:red_time_app/view/auth/auth_viewmodel.dart';
-import 'package:red_time_app/view/terms/terms_page_view.dart';
+import 'package:red_time_app/constants/terms_version.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TermsAgreementView extends StatefulWidget {
   const TermsAgreementView({super.key});
@@ -88,11 +89,11 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                               _allAgreed = _termsAgreed && _privacyAgreed;
                             });
                           },
-                          onLinkTap: () {
-                            Navigator.of(context).pushNamed(
-                              '/terms-page',
-                              arguments: {'type': TermsPageType.terms},
-                            );
+                          onLinkTap: () async {
+                            final url = Uri.parse(TermsVersion.termsUrl);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            }
                           },
                         ),
                         const SizedBox(height: AppSpacing.xs),
@@ -106,11 +107,11 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
                               _allAgreed = _termsAgreed && _privacyAgreed;
                             });
                           },
-                          onLinkTap: () {
-                            Navigator.of(context).pushNamed(
-                              '/privacy-page',
-                              arguments: {'type': TermsPageType.privacy},
-                            );
+                          onLinkTap: () async {
+                            final url = Uri.parse(TermsVersion.privacyUrl);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            }
                           },
                         ),
                       ],
