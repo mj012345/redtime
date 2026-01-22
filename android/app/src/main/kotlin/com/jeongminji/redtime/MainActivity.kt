@@ -1,4 +1,4 @@
-package com.example.red_time_app
+package com.jeongminji.redtime
 
 import io.flutter.embedding.android.FlutterActivity
 
