@@ -32,7 +32,7 @@ class SymptomColors {
   static const Color fertile = Color(0xFFECFDF5); // 가임기
   static const Color border = Color(0xFFE7E7E7); // 테두리
   static const Color symptomBase = Color(0xFFFFDD85); // 증상 기본 색상
-  static const Color goodSymptom = Color(0xFFFFAFAD); // 좋음 증상 색상
+  static const Color goodSymptom = Color(0xFF62AD9E); // 좋음 증상 색상
   static const Color relationship = Color(0xFFFF80AB); // 관계(하트) 색상
   static const Color memo = Color(0xFFC9E1FD); // 메모 색상
   static const Color frequentHigh = Color(0xFFF27676); // 가장 많이 기록된 r증상 색상
