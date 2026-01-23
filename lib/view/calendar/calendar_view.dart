@@ -15,7 +15,8 @@ import 'widgets/memo_bottom_sheet.dart';
 import 'widgets/week_row.dart';
 
 class CalendarView extends StatefulWidget {
-  const CalendarView({super.key});
+  final bool isActive;
+  const CalendarView({super.key, this.isActive = true});
 
   @override
   State<CalendarView> createState() => _CalendarViewState();
@@ -283,6 +284,7 @@ class _CalendarViewState extends State<CalendarView> {
                                    return symptoms.contains('기타/관계');
                                  },
                                 onSelect: vm.selectDay,
+                                 isActive: widget.isActive,
                               ),
                             ),
                           // 나머지 내용
@@ -351,6 +353,7 @@ class _CalendarViewState extends State<CalendarView> {
                                              return symptoms.contains('기타/관계');
                                            },
                                           onSelect: vm.selectDay,
+                                          isActive: widget.isActive,
                                         );
                                       },
                                     ),
@@ -462,6 +465,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
   final bool Function(DateTime) hasMemoFor;
   final bool Function(DateTime) hasRelationshipFor;
   final ValueChanged<DateTime> onSelect;
+  final bool isActive;
 
   _StickyWeekHeaderDelegate({
     required this.week,
@@ -480,6 +484,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.hasMemoFor,
     required this.hasRelationshipFor,
     required this.onSelect,
+    required this.isActive,
   });
 
   @override
@@ -545,6 +550,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
               hasMemoFor: hasMemoFor,
               hasRelationshipFor: hasRelationshipFor,
               onSelect: onSelect,
+              isActive: isActive,
             ),
           ),
           // 그라데이션 배경
@@ -574,6 +580,7 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
         fertileWindowDays != oldDelegate.fertileWindowDays ||
         hasRecordFor != oldDelegate.hasRecordFor ||
         hasMemoFor != oldDelegate.hasMemoFor ||
-        hasRelationshipFor != oldDelegate.hasRelationshipFor;
+        hasRelationshipFor != oldDelegate.hasRelationshipFor ||
+        isActive != oldDelegate.isActive;
   }
 }

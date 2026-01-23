@@ -57,7 +57,7 @@ class _MainViewState extends State<MainView> {
           return IndexedStack(
             index: index,
             children: [
-              _buildPage(0, const CalendarView()),
+              _buildPage(0, CalendarView(isActive: index == 0)),
               _buildPage(1, const ReportView()),
               _buildPage(2, const MyView()),
             ],

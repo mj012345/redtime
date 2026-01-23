@@ -34,8 +34,8 @@ class AuthService {
       // 참고: 이메일만 수집하며, 이름, 프로필 사진, 생년월일, 성별, 전화번호는 수집하지 않습니다.
       // 'profile' scope를 제거하여 이름과 프로필 사진 권한 요청을 방지합니다.
     ],
-    // serverClientId를 명시하지 않으면 google-services.json에서 자동으로 찾습니다
-    // ApiException: 10 발생 시 Firebase Console에서 SHA-1 인증서 지문 등록 확인 필요
+    // serverClientId를 명시적으로 지정하여 ApiException: 10 오류 해결 (Android 시뮬레이터 대응)
+    serverClientId: '662879661830-mqqathnr9l0qkndjj58id3to0fnsp5hv.apps.googleusercontent.com',
   );
 
   /// 현재 로그인된 사용자
@@ -81,7 +81,7 @@ class AuthService {
       } on PlatformException catch (e) {
         if (e.code == 'sign_in_failed') {
           if (e.message?.contains('ApiException: 10') == true) {
-            throw Exception('Google 로그인 설정 오류 (ApiException: 10)');
+            throw Exception('Google 로그인 설정 오류 (ApiException: 10) - Firebase 콘솔에 SHA-1 등록 확인이 필요합니다.');
           }
           throw Exception('Google 로그인에 실패했습니다.');
         }

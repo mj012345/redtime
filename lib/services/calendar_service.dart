@@ -172,15 +172,14 @@ class CalendarService {
     );
 
     for (int month = 0; month < 3; month++) {
-      for (int i = 0; i < periodDuration; i++) {
-        expectedPeriodDays.add(
-          DateTime(
-            nextPeriodStart.year,
-            nextPeriodStart.month,
-            nextPeriodStart.day + i,
-          ),
-        );
-      }
+      // 예상 생리일: 당일 하루만 표시
+      expectedPeriodDays.add(
+        DateTime(
+          nextPeriodStart.year,
+          nextPeriodStart.month,
+          nextPeriodStart.day,
+        ),
+      );
 
       // expectedOvulation(배란 예상일) 계산 방법:
       // 1) cycleLength: 최근 간격 trimmed mean 후 15~45일로 제한

@@ -24,6 +24,7 @@ class DayCell extends StatefulWidget {
   final bool isFertileStart;
   final bool isFertileEnd;
   final DateTime? today;
+  final bool isActive; // 현재 탭이 활성화 상태인지 여부
 
   const DayCell({
     super.key,
@@ -48,6 +49,7 @@ class DayCell extends StatefulWidget {
     required this.isFertileStart,
     required this.isFertileEnd,
     this.today,
+    this.isActive = true,
   });
 
   @override
@@ -70,7 +72,7 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    if (widget.isExpectedPeriod || widget.isExpectedFertile) {
+    if ((widget.isExpectedPeriod || widget.isExpectedFertile) && widget.isActive) {
       _controller.repeat(reverse: true);
     }
   }
@@ -78,11 +80,11 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
   @override
   void didUpdateWidget(DayCell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((widget.isExpectedPeriod || widget.isExpectedFertile) &&
-        !(_controller.isAnimating)) {
+    final shouldAnimate = (widget.isExpectedPeriod || widget.isExpectedFertile) && widget.isActive;
+    
+    if (shouldAnimate && !_controller.isAnimating) {
       _controller.repeat(reverse: true);
-    } else if (!(widget.isExpectedPeriod || widget.isExpectedFertile) &&
-        _controller.isAnimating) {
+    } else if (!shouldAnimate && _controller.isAnimating) {
       _controller.stop();
     }
   }
@@ -116,12 +118,17 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
         ? AppColors.textDisabled.withValues(alpha: 0.5)
         : isFutureDate
             ? AppColors.textPrimary.withValues(alpha: 0.5)
-            : AppColors.textPrimary;
+            : widget.isToday
+                ? AppColors.textPrimaryLight
+                : AppColors.textPrimary;
     Color? borderColor;
 
     if (showPeriod) {
       bgColor = SymptomColors.period;
-      textColor = AppColors.textPrimary;
+      // 오늘 날짜인 경우 textPrimaryLight 유지, 아니면 textPrimary
+      if (!widget.isToday) {
+        textColor = AppColors.textPrimary;
+      }
     } else if (showFertile) {
       bgColor = SymptomColors.fertile;
     }

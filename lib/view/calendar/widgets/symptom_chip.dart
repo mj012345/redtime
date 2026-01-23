@@ -26,7 +26,7 @@ class SymptomChip extends StatelessWidget {
     // 선택된 경우: 좋음은 초록색, 그 외는 보라색
     // 선택되지 않은 경우: 흰색 배경
     final fillColor = selected
-        ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.3): SymptomColors.symptomBase.withValues(alpha: 0.2))
+        ? (isGood ? SymptomColors.goodSymptom.withValues(alpha: 0.2): SymptomColors.symptomBase.withValues(alpha: 0.2))
         : Colors.white;
     
     final borderColor = selected

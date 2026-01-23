@@ -20,6 +20,7 @@ class WeekRow extends StatelessWidget {
   final bool Function(DateTime) hasMemoFor; // 메모 여부 확인 함수
   final bool Function(DateTime) hasRelationshipFor; // 관계 여부 확인 함수
   final ValueChanged<DateTime> onSelect;
+  final bool isActive; // 현재 탭 활성화 여부
 
   const WeekRow({
     super.key,
@@ -39,6 +40,7 @@ class WeekRow extends StatelessWidget {
     required this.hasMemoFor,
     required this.hasRelationshipFor,
     required this.onSelect,
+    this.isActive = true,
   });
 
   bool _containsDate(List<DateTime> list, DateTime date) {
@@ -100,6 +102,7 @@ class WeekRow extends StatelessWidget {
                         day,
                       ),
                       today: today,
+                      isActive: isActive,
                     ),
                   ),
                 )
