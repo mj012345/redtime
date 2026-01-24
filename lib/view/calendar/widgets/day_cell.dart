@@ -124,13 +124,17 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
     Color? borderColor;
 
     if (showPeriod) {
-      bgColor = SymptomColors.period;
-      // 오늘 날짜인 경우 textPrimaryLight 유지, 아니면 textPrimary
-      if (!widget.isToday) {
+      bgColor = isFutureDate
+          ? SymptomColors.period.withValues(alpha: 0.5)
+          : SymptomColors.period;
+      // 오늘 날짜인 경우 textPrimaryLight 유지, 미래 날짜인 경우 faded 유지, 그 외에는 textPrimary
+      if (!widget.isToday && !isFutureDate) {
         textColor = AppColors.textPrimary;
       }
     } else if (showFertile) {
-      bgColor = SymptomColors.fertile;
+      bgColor = isFutureDate
+          ? SymptomColors.fertile.withValues(alpha: 0.5)
+          : SymptomColors.fertile;
     }
 
     if (showSelected) {
@@ -244,6 +248,7 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
                               isExpectedPeriodStart: widget.isExpectedPeriodStart,
                               isExpectedOvulation: widget.isExpectedOvulation,
                               isExpectedFertile: showExpectedFertile,
+                              isFutureDate: isFutureDate,
                             ),
                           ),
                   ),
@@ -266,7 +271,7 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
                               if (widget.hasRecord) ...[
                                 const Icon(
                                   Icons.local_hospital,
-                                  size: 10,
+                                  size: 12,
                                   color: SymptomColors.symptomBase,
                                 ),
                                 if (widget.hasMemo) const SizedBox(width: 1),
@@ -274,7 +279,7 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
                               if (widget.hasMemo)
                                 const Icon(
                                   CupertinoIcons.doc_text_fill,
-                                  size: 10,
+                                  size: 11,
                                   color: SymptomColors.memo,
                                 ),
                             ],
@@ -300,29 +305,42 @@ class _DayCellState extends State<DayCell> with SingleTickerProviderStateMixin {
     required bool isExpectedPeriodStart,
     required bool isExpectedOvulation,
     required bool isExpectedFertile,
+    required bool isFutureDate,
   }) {
     Widget? indicator;
     if (isPeriod && isPeriodStart && isPeriodEnd) {
-      indicator = const Text(
+      indicator = Text(
         '시작/종료',
         style: TextStyle(
-            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w800),
+            fontSize: 8,
+            color: isFutureDate
+                ? const Color(0xFFF87171).withValues(alpha: 0.5)
+                : const Color(0xFFF87171),
+            fontWeight: isFutureDate ? FontWeight.w400 : FontWeight.w800),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodStart) {
-      indicator = const Text(
+      indicator = Text(
         '시작',
         style: TextStyle(
-            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
+            fontSize: 8,
+            color: isFutureDate
+                ? const Color(0xFFF87171).withValues(alpha: 0.5)
+                : const Color(0xFFF87171),
+            fontWeight: isFutureDate ? FontWeight.w400 : FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );
     } else if (isPeriod && isPeriodEnd) {
-      indicator = const Text(
+      indicator = Text(
         '종료',
         style: TextStyle(
-            fontSize: 8, color: Color(0xFFF87171), fontWeight: FontWeight.w700),
+            fontSize: 8,
+            color: isFutureDate
+                ? const Color(0xFFF87171).withValues(alpha: 0.5)
+                : const Color(0xFFF87171),
+            fontWeight: isFutureDate ? FontWeight.w400 : FontWeight.w700),
         maxLines: 1,
         overflow: TextOverflow.visible,
       );

@@ -67,26 +67,6 @@ class CalendarGrid extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: weekdays
-              .map(
-                (w) => Expanded(
-                  child: Center(
-                    child: Text(
-                      w,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: (w == '일' || w == '토')
-                            ? AppColors.primary
-                            : AppColors.textPrimary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
         const SizedBox(height: AppSpacing.xs),
         Column(
           mainAxisSize: MainAxisSize.min,

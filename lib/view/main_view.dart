@@ -58,7 +58,7 @@ class _MainViewState extends State<MainView> {
             index: index,
             children: [
               _buildPage(0, CalendarView(isActive: index == 0)),
-              _buildPage(1, const ReportView()),
+              _buildPage(1, ReportView(isActive: index == 1)),
               _buildPage(2, const MyView()),
             ],
           );

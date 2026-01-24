@@ -68,11 +68,10 @@ class _CalendarViewState extends State<CalendarView> {
   bool _isSelectedWeekOutOfView(double scrollOffset, DateTime? selectedDay) {
     if (selectedDay == null) return false;
 
-    const headerHeight = 26.0;
-    const spacing = AppSpacing.lg;
-    const cellHeight = 40.0;
-    const lineHeight = 1.0;
-    const rowHeight = cellHeight + lineHeight;
+    // CalendarGrid 내부의 상단 간격
+    const gridTopSpacing = AppSpacing.xs;
+    const cellHeight = 45.0;
+    const rowHeight = cellHeight;
 
     // 선택한 날짜가 포함된 주가 달력 그리드에서 몇 번째 주인지 계산
     final firstDay = DateTime(selectedDay.year, selectedDay.month, 1);
@@ -85,21 +84,19 @@ class _CalendarViewState extends State<CalendarView> {
     final weekIndex = daysFromStart ~/ 7;
 
     // 선택한 주의 Y 위치 계산
-    final weekYPosition = headerHeight + spacing + (weekIndex * rowHeight);
+    final weekYPosition = gridTopSpacing + (weekIndex * rowHeight);
 
     // 스크롤 오프셋이 선택한 주의 위치를 넘어갔는지 확인
-    // 약간의 여유를 두기 위해 rowHeight만큼 더 확인
-    return scrollOffset > weekYPosition + rowHeight;
+    return scrollOffset > weekYPosition;
   }
 
   /// 최대 달력 높이 반환 (6주 달력 기준)
   double _getMaxCalendarHeight() {
-    const headerHeight = 22.0; // 요일 헤더 (텍스트 높이 + 여백)
-    const spacing = AppSpacing.xs; // 요일과 날짜 사이 간격
     const cellHeight = 45.0;
     const maxRowCount = 6;
+    const spacing = AppSpacing.xs; // 내부 간격
 
-    return headerHeight + spacing + (maxRowCount * cellHeight);
+    return spacing + (maxRowCount * cellHeight);
   }
 
   /// 선택된 날짜가 포함된 주를 계산
@@ -248,7 +245,8 @@ class _CalendarViewState extends State<CalendarView> {
                       }
                     },
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildWeekdayLabels(),
                   Expanded(
                     child: CustomScrollView(
                       controller: _scrollController,
@@ -445,6 +443,35 @@ class _CalendarViewState extends State<CalendarView> {
       );
     }
   }
+
+  Widget _buildWeekdayLabels() {
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      color: _showStickyHeader ? AppColors.background : AppColors.surface,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: weekdays
+            .map(
+              (w) => Expanded(
+                child: Center(
+                  child: Text(
+                    w,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: (w == '일' || w == '토')
+                          ? AppColors.primary
+                          : AppColors.textPrimary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
 }
 
 /// 선택된 날짜가 포함된 주를 고정 헤더로 표시하는 Delegate
@@ -488,10 +515,10 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  double get minExtent => 89.0;
+  double get minExtent => 55.0;
 
   @override
-  double get maxExtent => 89.0;
+  double get maxExtent => 55.0;
 
   @override
   Widget build(
@@ -506,31 +533,6 @@ class _StickyWeekHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: weekdays
-                  .map(
-                    (w) => Expanded(
-                      child: Center(
-                        child: Text(
-                          w,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: (w == '일' || w == '토')
-                                ? AppColors.primary
-                                : AppColors.textPrimary.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: WeekRow(

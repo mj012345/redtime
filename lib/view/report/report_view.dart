@@ -12,7 +12,8 @@ import 'package:red_time_app/view/calendar/calendar_viewmodel.dart';
 import 'package:red_time_app/models/period_cycle.dart';
 
 class ReportView extends StatelessWidget {
-  const ReportView({super.key});
+  final bool isActive;
+  const ReportView({super.key, this.isActive = true});
 
   /// 최근 6개월 데이터 기준으로 평균 주기와 평균 기간 계산
   ({String avgCycle, String avgPeriod}) _calculateAverages(
@@ -391,6 +392,9 @@ class ReportView extends StatelessWidget {
       ),
       body: Consumer<CalendarViewModel>(
         builder: (context, vm, child) {
+          if (!vm.isInitialized) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final averages = _calculateAverages(vm.periodCycles, vm.today);
           final avgCycle = averages.avgCycle;
           final avgPeriod = averages.avgPeriod;
@@ -606,6 +610,7 @@ class ReportView extends StatelessWidget {
                                     vm.today.day,
                                   ),
                                   isExample: !hasData,
+                                  isActive: isActive,
                                 ),
                                 // 레이어 문구 (반투명)
                                 if (!hasData)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:red_time_app/models/symptom_category.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
@@ -39,6 +40,9 @@ class SymptomCalendarHeatmap extends StatefulWidget {
   /// 예시 모드 (데이터가 없을 때 회색으로 표시)
   final bool isExample;
 
+  /// 현재 탭 활성화 여부
+  final bool isActive;
+
   const SymptomCalendarHeatmap({
     super.key,
     required this.symptomData,
@@ -49,6 +53,7 @@ class SymptomCalendarHeatmap extends StatefulWidget {
     required this.startDate,
     required this.endDate,
     this.isExample = false,
+    this.isActive = true,
   });
 
   @override
@@ -60,6 +65,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
   bool _hasScrolledToEnd = false;
   String? _selectedCellKey; // 선택된 셀의 키 (날짜_레이블)
   OverlayEntry? _tooltipOverlay; // 현재 표시 중인 툴팁
+  int? _lastHapticIndex; // 다이얼 효과를 위한 마지막 진동 인덱스
 
   // Lazy loading을 위한 상태
   late DateTime _displayedStartDate; // 현재 표시 중인 시작 날짜
@@ -147,6 +153,19 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       _hideTooltipOnly();
     }
 
+    // 다이얼 느낌의 진동 피드백
+    if (_scrollController.hasClients) {
+      final scrollPosition = _scrollController.position.pixels;
+      const cellWidth = 22.0;
+      final currentIndex = (scrollPosition / cellWidth).round();
+
+      if (_lastHapticIndex != currentIndex) {
+        // 부드러운 다이얼 느낌을 위해 selectionClick 사용
+        HapticFeedback.selectionClick();
+        _lastHapticIndex = currentIndex;
+      }
+    }
+
     // 현재 보이는 첫 번째 날짜의 월 업데이트
     _updateVisibleMonth();
 
@@ -227,6 +246,17 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     });
   }
 
+  /// 오늘 날짜로 소매 스크롤
+  void _scrollToToday() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   void didUpdateWidget(SymptomCalendarHeatmap oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -240,6 +270,11 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         oldWidget.isExample != widget.isExample ||
         oldWidget.symptomCatalog != widget.symptomCatalog) {
       _updateCache();
+    }
+
+    // 탭이 비활성화되면 툴팁 숨기기
+    if (oldWidget.isActive && !widget.isActive) {
+      _hideTooltip();
     }
   }
 
@@ -286,8 +321,14 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
 
   /// 툴팁 숨기기 및 셀 선택 해제
   void _hideTooltip() {
-    _tooltipOverlay?.remove();
-    _tooltipOverlay = null;
+    if (_tooltipOverlay != null) {
+      try {
+        _tooltipOverlay!.remove();
+      } catch (e) {
+        // 이미 제거되었거나 아직 삽입되지 않은 경우 무시
+      }
+      _tooltipOverlay = null;
+    }
     if (mounted) {
       setState(() {
         _selectedCellKey = null;
@@ -449,7 +490,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     // 기존 툴팁이 있으면 먼저 제거 (셀 선택 상태는 유지)
     _hideTooltipOnly();
 
-    final overlay = Overlay.of(context);
+
     final screenSize = MediaQuery.of(context).size;
     final cellSize = 16.0; // 셀 크기
     final tooltipOffset = -3.0; // 툴팁 오프셋 (셀과 약간 겹치도록)
@@ -536,7 +577,12 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       ),
     );
 
-    overlay.insert(_tooltipOverlay!);
+    final overlay = Overlay.maybeOf(context);
+    if (overlay != null && _tooltipOverlay != null) {
+      overlay.insert(_tooltipOverlay!);
+    } else {
+      _tooltipOverlay = null;
+    }
   }
 
   /// 카테고리별 레이블 리스트 생성
@@ -699,377 +745,277 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
       _updateVisibleMonth();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            // 세로/가로 스크롤 모두 감지하여 툴팁만 닫기 (셀 선택 상태는 유지)
-            if (_tooltipOverlay != null) {
-              _hideTooltipOnly();
-            }
-            return false; // 다른 리스너도 처리할 수 있도록 false 반환
-          },
-          child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return TapRegion(
+      onTapOutside: (event) => _hideTooltip(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // 레이블 컬럼 (고정)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 월 표시 헤더
-              SizedBox(
-                height: 22,
-                width: 30,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: RepaintBoundary(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: animation.drive(Tween(begin: 0.9, end: 1.0)),
-                            child: child,
+          // 오늘 버튼
+          GestureDetector(
+            onTap: _scrollToToday,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: AppColors.textDisabled.withValues(alpha: 0.1),
+              ),
+              child: Text(
+                '오늘',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textPrimary.withValues(alpha: 0.9),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 히트맵 영역 (스크롤 감지 포함)
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (_tooltipOverlay != null) {
+                _hideTooltipOnly();
+              }
+              return false;
+            },
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 레이블 컬럼 (고정)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 월 표시 헤더
+                    SizedBox(
+                      height: 22,
+                      width: 30,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: RepaintBoundary(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder:
+                                (Widget child, Animation<double> animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: animation.drive(Tween(begin: 0.9, end: 1.0)),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Text(
+                              _visibleFirstMonthYear ?? '',
+                              key: ValueKey(_visibleFirstMonthYear),
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 9,
+                                color: AppColors.textPrimaryLight,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      child: Text(
-                        _visibleFirstMonthYear ?? '',
-                        key: ValueKey(_visibleFirstMonthYear),
-                        style: AppTextStyles.caption.copyWith(
-                          fontSize: 9,
-                          color: AppColors.textPrimaryLight,
-                          fontWeight: FontWeight.w700,
                         ),
+                      ),
+                    ),
+                    // 레이블들
+                    ...labelRows.map((labelRow) {
+                      return SizedBox(
+                        height: 22,
+                        width: 30,
+                        child: Align(
+                          alignment: const Alignment(1.0, -0.5),
+                          child: Text(
+                            labelRow.label,
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10,
+                              color: AppColors.secondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(width: 5),
+                // 날짜 헤더와 그리드 (스크롤 가능)
+                Expanded(
+                  child: RepaintBoundary(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Stack(
+                        children: [
+                          // 배경 하이라이트 레이어
+                          Positioned.fill(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: dates.map((date) {
+                                final isPeriod = (_cachedPeriodDays ?? widget.periodDays).any((d) => _sameDay(d, date));
+                                final isFertile = (_cachedFertileWindowDays ?? widget.fertileWindowDays).any((d) => _sameDay(d, date));
+                                
+                                Color? barColor;
+                                if (isPeriod) {
+                                  barColor = widget.isExample 
+                                      ? AppColors.textDisabled.withValues(alpha: 0.1)
+                                      : SymptomColors.period.withValues(alpha: 0.5);
+                                } else if (isFertile) {
+                                  barColor = widget.isExample
+                                      ? AppColors.textDisabled.withValues(alpha: 0.05)
+                                      : SymptomColors.fertile.withValues(alpha: 0.5);
+                                }
+
+                                return Container(
+                                  width: 22,
+                                  color: barColor,
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 날짜 헤더
+                              SizedBox(
+                                height: 22,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: dates.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final date = entry.value;
+                                    final isFirstOfMonth =
+                                        index == 0 ||
+                                        date.day == 1 ||
+                                        (index > 0 && dates[index - 1].month != date.month);
+                                    final isToday = _sameDay(date, DateTime.now());
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                                      child: SizedBox(
+                                        width: 16,
+                                        child: Center(
+                                          child: Text(
+                                            _formatDate(date, isFirstOfMonth),
+                                            style: AppTextStyles.caption.copyWith(
+                                              fontSize: 9,
+                                              color: isToday
+                                                  ? AppColors.primary
+                                                  : AppColors.textPrimary.withValues(alpha: 0.5),
+                                              fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.clip,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              // 날짜 그리드
+                              ...labelRows.map((labelRow) {
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: dates.map((date) {
+                                    final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                    final symptoms = (_cachedSymptomData ?? widget.symptomData)[dateKey] ?? <String>{};
+                                    final cellKey = '${dateKey}_${labelRow.label}';
+                                    final isSelected = _selectedCellKey == cellKey;
+
+                                    bool hasSymptom = false;
+                                    Color cellColor = Colors.transparent;
+                                    final isExample = _cachedIsExample ?? widget.isExample;
+
+                                    if (labelRow.label == '메모') {
+                                      final memo = (_cachedMemos ?? widget.memos)[dateKey];
+                                      if (memo != null && memo.trim().isNotEmpty) {
+                                        hasSymptom = true;
+                                        cellColor = isExample ? AppColors.textDisabled.withValues(alpha: 0.3) : SymptomColors.memo;
+                                      }
+                                    } else if (labelRow.isCategory) {
+                                      final categorySymptoms = _getSymptomsForCategory(labelRow.label);
+                                      final hasGood = symptoms.contains('${labelRow.label}/좋음');
+                                      if (hasGood) {
+                                        hasSymptom = true;
+                                        cellColor = isExample ? AppColors.textDisabled.withValues(alpha: 0.3) : SymptomColors.goodSymptom;
+                                      } else {
+                                        final symptomCount = categorySymptoms.where((s) => symptoms.contains('${labelRow.label}/$s')).length;
+                                        if (symptomCount > 0) {
+                                          hasSymptom = true;
+                                          double alpha = symptomCount == 1 ? 0.3 : (symptomCount == 2 ? 0.6 : 1.0);
+                                          cellColor = isExample ? AppColors.textDisabled.withValues(alpha: alpha) : SymptomColors.symptomBase.withValues(alpha: alpha);
+                                        }
+                                      }
+                                    }
+
+                                    final hasRelationship = labelRow.label == '가임기' && (symptoms.contains('기타/관계') || symptoms.contains('관계'));
+                                    Color borderColor = isSelected ? _darkenColor(hasSymptom ? cellColor : SymptomColors.border, 0.15) : SymptomColors.border;
+
+                                    return RepaintBoundary(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTapDown: (_) => _hideTooltipOnly(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.fromLTRB(3, 0, 3, 6),
+                                          child: Builder(builder: (cellContext) {
+                                            return GestureDetector(
+                                              onTapDown: (_) {
+                                                _hideTooltipOnly();
+                                                setState(() => _selectedCellKey = cellKey);
+                                                if (hasSymptom) {
+                                                  final RenderBox? box = cellContext.findRenderObject() as RenderBox?;
+                                                  if (box != null) {
+                                                    final cellCenter = box.localToGlobal(Offset(box.size.width / 2, box.size.height / 2));
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (mounted && _selectedCellKey == cellKey) {
+                                                        _showSymptomDialog(cellContext, date, symptoms, labelRow, cellCenter);
+                                                      }
+                                                    });
+                                                  }
+                                                }
+                                              },
+                                              child: Stack(
+                                                children: [
+                                                  Container(
+                                                    width: 16,
+                                                    height: 16,
+                                                    decoration: BoxDecoration(
+                                                      color: cellColor,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                      border: Border.all(color: borderColor, width: isSelected ? 1.5 : 0.5),
+                                                    ),
+                                                  ),
+                                                  if (hasRelationship)
+                                                    const Positioned.fill(
+                                                      child: Center(
+                                                        child: Icon(Icons.favorite, size: 10, color: SymptomColors.relationship),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              }),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ),
-              // 레이블들 (셀 높이 16 + 하단 간격 6 = 22)
-              ...labelRows.map((labelRow) {
-                return SizedBox(
-                  height: 22,
-                  width: 30,
-                  child: Align(
-                    alignment: Alignment(1.0, -0.5),
-                    child: Text(
-                      labelRow.label,
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 10,
-                        color: AppColors.secondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.visible,
-                    ),
-                  ),
-                );
-              }),
-            ],
+              ],
+            ),
           ),
-          SizedBox(width: 5),
-          // 날짜 헤더와 그리드 (스크롤 가능, 동기화)
-          Expanded(
-            child: RepaintBoundary(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                scrollDirection: Axis.horizontal,
-                child: Stack(
-                children: [
-                  // 배경 하이라이트 레이어 (생리일/가임기)
-                  Positioned.fill(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: dates.map((date) {
-                        final isPeriod = (_cachedPeriodDays ?? widget.periodDays).any((d) => _sameDay(d, date));
-                        final isFertile = (_cachedFertileWindowDays ?? widget.fertileWindowDays).any((d) => _sameDay(d, date));
-                        
-                        Color? barColor;
-                        if (isPeriod) {
-                          barColor = widget.isExample 
-                              ? AppColors.textDisabled.withValues(alpha: 0.1)
-                              : SymptomColors.period.withValues(alpha: 0.5);
-                        } else if (isFertile) {
-                          barColor = widget.isExample
-                              ? AppColors.textDisabled.withValues(alpha: 0.05)
-                              : SymptomColors.fertile.withValues(alpha: 0.5);
-                        }
-
-                        return Container(
-                          width: 22, // 셀(16) + 오른쪽 간격(6)
-                          color: barColor,
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 날짜 헤더 (셀 높이 16 + 하단 간격 6 = 22)
-                      SizedBox(
-                        height: 22,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: dates.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final date = entry.value;
-                            final isFirstOfMonth =
-                                index == 0 ||
-                                date.day == 1 ||
-                                (index > 0 && dates[index - 1].month != date.month);
-
-                            // 오늘 날짜인지 확인
-                            final today = DateTime.now();
-                            final isToday = _sameDay(date, today);
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
-                              child: SizedBox(
-                                width: 16,
-                                child: Center(
-                                  child: Text(
-                                    _formatDate(date, isFirstOfMonth),
-                                    style: AppTextStyles.caption.copyWith(
-                                      fontSize: 9,
-                                      color: isToday
-                                          ? AppColors.primary
-                                          : AppColors.textPrimary.withValues(
-                                              alpha: 0.5,
-                                            ),
-                                      fontWeight: isToday
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.clip,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      // 날짜 그리드
-                  ...labelRows.asMap().entries.map((labelEntry) {
-                    final labelRow = labelEntry.value;
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: dates.asMap().entries.map((dateEntry) {
-                        final date = dateEntry.value;
-
-                        // 해당 레이블의 증상이 있는지 확인
-                        final dateKey =
-                            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                        final symptoms =
-                            (_cachedSymptomData ??
-                                widget.symptomData)[dateKey] ??
-                            <String>{};
-
-                        bool hasSymptom = false;
-                        Color cellColor = Colors.transparent;
-
-                        // 생리일과 가임기는 별도 처리
-                        final periodDays =
-                            _cachedPeriodDays ?? widget.periodDays;
-                        final fertileWindowDays =
-                            _cachedFertileWindowDays ??
-                            widget.fertileWindowDays;
-                        final isExample = _cachedIsExample ?? widget.isExample;
-
-                        if (labelRow.label == '메모') {
-                          final memos = _cachedMemos ?? widget.memos;
-                          final memo = memos[dateKey];
-                          if (memo != null && memo.trim().isNotEmpty) {
-                            hasSymptom = true;
-                            cellColor = isExample
-                                ? AppColors.textDisabled.withValues(alpha: 0.3)
-                                : SymptomColors.memo;
-                          }
-                        } else if (labelRow.isCategory) {
-                          // 카테고리 행: 해당 카테고리의 증상 개수 확인
-                          final categorySymptoms = _getSymptomsForCategory(
-                            labelRow.label,
-                          );
-                          // "좋음" 증상이 있는지 확인
-                          final hasGood = symptoms.contains(
-                            '${labelRow.label}/좋음',
-                          );
-                          if (hasGood) {
-                            // '좋음'이 있으면 항상 62AD9E 색상, 투명도 100%
-                            cellColor = isExample
-                                ? AppColors.textDisabled.withValues(alpha: 0.3)
-                                : SymptomColors.goodSymptom;
-                            hasSymptom = true;
-                          } else {
-                            // "카테고리/증상" 형식으로 해당 카테고리의 증상 개수 세기
-                            final symptomCount = categorySymptoms
-                                .where(
-                                  (symptom) => symptoms.contains(
-                                    '${labelRow.label}/$symptom',
-                                  ),
-                                )
-                                .length;
-                            if (symptomCount > 0) {
-                              // 증상 개수에 따라 투명도 적용
-                              double alpha = 1.0;
-                              if (symptomCount == 1) {
-                                alpha = 0.3;
-                              } else if (symptomCount == 2) {
-                                alpha = 0.6;
-                              } else {
-                                alpha = 1.0;
-                              }
-                              cellColor = isExample
-                                  ? AppColors.textDisabled.withValues(
-                                      alpha: alpha,
-                                    )
-                                  : SymptomColors.symptomBase.withValues(
-                                      alpha: alpha,
-                                    );
-                              hasSymptom = true;
-                            }
-                          }
-                        }
-
-                        // 셀 키 생성 (날짜_레이블)
-                        final cellKey =
-                            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}_${labelRow.label}';
-                        final isSelected = _selectedCellKey == cellKey;
-
-                        // 가임기 셀에 관계 기록이 있는지 확인
-                        final hasRelationship =
-                            labelRow.label == '가임기' &&
-                            (symptoms.contains('기타/관계') ||
-                                symptoms.contains('관계'));
-
-                        // 셀 색상에 따라 테두리 색상 결정
-                        Color borderColor = SymptomColors.border;
-                        if (isSelected) {
-                          if (hasSymptom) {
-                            // 증상이 있는 셀: 셀 색상보다 약간 진한 색상으로 테두리
-                            borderColor = _darkenColor(cellColor, 0.1);
-                          } else {
-                            // 증상이 없는 셀: 기본 테두리보다 약간 진한 회색으로 테두리
-                            borderColor = _darkenColor(
-                              SymptomColors.border,
-                              0.15,
-                            );
-                          }
-                        }
-
-                        // 모든 셀에 테두리 추가
-                        return RepaintBoundary(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapDown: (details) {
-                              // 간격 영역을 터치하면 툴팁만 제거 (셀 선택 상태는 유지)
-                              _hideTooltipOnly();
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(3, 0, 3, 6),
-                              child: Builder(
-                                builder: (cellContext) {
-                                  return GestureDetector(
-                                    onTapDown: (details) {
-                                      // 기존 툴팁이 있으면 먼저 닫기 (셀 선택 상태는 유지)
-                                      _hideTooltipOnly();
-
-                                      // 선택된 셀 업데이트
-                                      setState(() {
-                                        _selectedCellKey = cellKey;
-                                      });
-
-                                      if (hasSymptom) {
-                                        // 증상이 있는 셀: 툴팁 표시
-                                        // 터치 위치를 전역 좌표로 변환
-                                        final RenderBox? box =
-                                            cellContext.findRenderObject()
-                                                as RenderBox?;
-                                        if (box != null) {
-                                          // 셀의 중심 위치 계산
-                                          final cellCenter = box.localToGlobal(
-                                            Offset(
-                                              box.size.width / 2,
-                                              box.size.height / 2,
-                                            ),
-                                          );
-
-                                          // 다음 프레임에서 툴팁 표시
-                                          WidgetsBinding.instance
-                                              .addPostFrameCallback((_) {
-                                                if (mounted &&
-                                                    _selectedCellKey ==
-                                                        cellKey) {
-                                                  _showSymptomDialog(
-                                                    cellContext,
-                                                    date,
-                                                    symptoms,
-                                                    labelRow,
-                                                    cellCenter,
-                                                  );
-                                                }
-                                              });
-                                        }
-                                      }
-                                      // 증상이 없는 셀: 테두리만 표시 (툴팁은 표시하지 않음)
-                                    },
-                                    child: Stack(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: cellColor,
-                                            borderRadius: BorderRadius.circular(
-                                              2,
-                                            ), // 약간 둥근 모서리
-                                            border: Border.all(
-                                              color: borderColor,
-                                              width: isSelected ? 1.5 : 0.5,
-                                            ),
-                                          ),
-                                        ),
-                                          if (hasRelationship)
-                                            const Positioned.fill(
-                                              child: Center(
-                                                child: Icon(
-                                                  Icons.favorite,
-                                                  size: 10,
-                                                  color: SymptomColors.relationship,
-                                                ),
-                                              ),
-                                            ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }).toList(),
-                  // 날짜 헤더
-
-                ],
-              ),
-            ],
-          ),
-        ),
+          _buildLegend(),
+        ],
       ),
-    ),
-  ],
-),
-    ),
-    _buildLegend(),
-  ],
-);
-}
+    );
+  }
 
   Widget _buildLegend() {
     return Padding(
