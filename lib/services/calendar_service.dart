@@ -1,5 +1,7 @@
 import 'package:red_time_app/models/period_cycle.dart';
 
+/// 캘린더에서 파생된 데이터를 담는 클래스
+/// (가임기, 배란일, 예상 생리일 등)
 class CalendarDerivedData {
   final List<DateTime> fertileWindowDays;
   final DateTime? ovulationDay;
@@ -18,10 +20,13 @@ class CalendarDerivedData {
   });
 }
 
+/// 생리 주기 관련 계산을 담당하는 서비스 클래스
 class CalendarService {
   const CalendarService();
 
-  // 중앙값: 변동성이 큰 구간 평균보다 튀는 값의 영향을 줄여 안정화
+  /// 중앙값 계산
+  /// - 변동성이 큰 데이터에서 평균보다 이상치의 영향을 덜 받음
+  /// - 리스트를 정렬한 후 중간 위치의 값을 반환
   int _medianInt(List<int> values) {
     if (values.isEmpty) return 0;
     final sorted = [...values]..sort();
@@ -32,7 +37,10 @@ class CalendarService {
     return ((sorted[mid - 1] + sorted[mid]) / 2).round();
   }
 
-  // Trimmed Mean: 최소/최대 한 개씩 제외해 이상치 영향 완화
+  /// Trimmed Mean (절사 평균) 계산
+  /// - 최소값과 최대값을 각각 하나씩 제외한 후 평균을 구함
+  /// - 이상치의 영향을 완화하여 더 안정적인 평균값 산출
+  /// - 3개 미만의 데이터는 일반 평균 사용
   int _trimmedMean(List<int> values) {
     if (values.isEmpty) return 0;
     if (values.length < 3) {
@@ -43,6 +51,8 @@ class CalendarService {
     return trimmed.reduce((a, b) => a + b) ~/ trimmed.length;
   }
 
+  /// 생리 주기의 종료일이 없거나 시작일보다 이전인 경우 기본값 설정
+  /// - 종료일을 시작일로부터 4일 후로 설정 (일반적인 생리 기간)
   void ensureDefaultEnd(List<PeriodCycle> cycles, int idx) {
     if (idx < 0 || idx >= cycles.length) return;
     final cycle = cycles[idx];
@@ -51,6 +61,8 @@ class CalendarService {
     }
   }
 
+  /// 모든 생리 주기의 날짜들을 하나의 리스트로 합침
+  /// - 중복 제거 및 정렬된 날짜 리스트 반환
   List<DateTime> computePeriodDays(List<PeriodCycle> cycles) {
     final set = <DateTime>{};
     for (final c in cycles) {
@@ -60,6 +72,29 @@ class CalendarService {
     return list;
   }
 
+  /// 생리 주기 데이터를 기반으로 가임기, 배란일, 예상 생리일 등을 계산
+  /// 
+  /// 계산 로직:
+  /// 1. 주기 길이(cycleLength) 산출
+  ///    - 각 생리 시작일 간격의 trimmed mean 사용
+  ///    - 15~45일 범위로 제한하여 비현실적인 값 배제
+  /// 
+  /// 2. 생리 기간(periodDuration) 산출
+  ///    - 각 주기의 시작~종료 일수의 중앙값 사용
+  /// 
+  /// 3. 배란일 계산
+  ///    - 황체기 14일 고정 (생물학적 표준)
+  ///    - 다음 주기가 있는 경우: 다음 시작일 - 14일
+  ///    - 마지막 주기: 시작일 + (주기길이 - 14일)
+  ///    - 단, 최소 시작일로부터 7일째 이후로 제한
+  /// 
+  /// 4. 가임기 계산
+  ///    - 배란일 기준 -4일 ~ +2일 (총 7일)
+  /// 
+  /// 5. 예상 생리일 및 가임기 계산
+  ///    - 다음 3개월의 예상 주기 계산
+  ///    - 예상 생리일: 시작일만 표시
+  ///    - 예상 가임기: 예상 배란일 기준 -4일 ~ +2일
   CalendarDerivedData computeDerivedFertility({
     required List<PeriodCycle> periodCycles,
   }) {
@@ -76,12 +111,15 @@ class CalendarService {
 
     final sorted = [...periodCycles]
       ..sort((a, b) => a.start.compareTo(b.start));
-    // intervals: "각 생리 시작일 사이의 일 수" 목록 → 주기 길이 추정에 사용
-    //   예) 12/1 시작, 다음 주기 12/29 시작 → 간격 28일 기록
+    
+    // intervals: 각 생리 시작일 사이의 일 수 (주기 길이 추정용)
+    // 예) 12/1 시작, 다음 주기 12/29 시작 → 간격 28일
     final intervals = <int>[];
-    // durations: 각 생리 구간 길이(시작~끝) → 생리 기간 중앙값 산출에 사용
-    //   예) 12/1~12/5 → 5일 기록
+    
+    // durations: 각 생리 기간 길이 (시작~종료)
+    // 예) 12/1~12/5 → 5일
     final durations = <int>[];
+    
     for (final c in sorted) {
       durations.add(c.end != null ? c.end!.difference(c.start).inDays + 1 : 1);
     }
@@ -91,21 +129,33 @@ class CalendarService {
       if (diff > 0) intervals.add(diff);
     }
 
-    // cycleLength: 예측에 쓰는 주기 길이
-    // 1) intervals(주기 간격)의 trimmed mean → 이상치 완화
-    // 2) clamp 21~35일 → 비현실적 짧/긴 주기 배제
-    //    - clamp: 값이 너무 작거나 크지 않게 최소/최대 범위로 잘라냄
+    // 주기 길이 계산
+    // - 최근 6개월(약 6개 간격)만 사용하여 현재 패턴 반영
+    // - intervals의 trimmed mean 사용 (이상치 완화)
+    // - 15~45일 범위로 제한 (비현실적인 짧거나 긴 주기 배제)
     int cycleLength;
     if (intervals.isNotEmpty) {
-      final trimmed = _trimmedMean(intervals);
+      // 디버그: 주기 패턴 출력
+      print('📊 [주기 분석] 전체 간격: $intervals');
+      
+      // 최근 6개 간격만 사용 (약 6개월치 데이터)
+      final recentIntervals = intervals.length > 6
+          ? intervals.sublist(intervals.length - 6)
+          : intervals;
+      
+      print('📊 [주기 분석] 최근 6개 간격: $recentIntervals');
+      
+      final trimmed = _trimmedMean(recentIntervals);
       cycleLength = trimmed == 0 ? 28 : trimmed;
+      
+      print('📊 [주기 분석] 계산된 주기 길이: $cycleLength일');
     } else {
       cycleLength = 28;
+      print('📊 [주기 분석] 기록 없음, 기본값 28일 사용');
     }
-    // 주기가 매우 짧은 경우(19일 등)도 지원하기 위해 범위 확장
     cycleLength = cycleLength.clamp(15, 45);
 
-    // periodDuration: 실제 생리 기간을 대표하는 값 (durations 중앙값)
+    // 생리 기간: durations의 중앙값
     final periodDuration = durations.isEmpty ? 1 : _medianInt(durations);
 
     var fertileWindowDays = <DateTime>[];
@@ -114,15 +164,18 @@ class CalendarService {
 
     // 황체기: 생물학적 표준인 14일로 고정
     const int luteal = 14;
-    // 배란은 생리 시작일로부터 최소 7일째(오프셋 6일) 이후여야 함
+    
+    // 배란일 계산 기준: 생리 시작일로부터 (주기길이 - 황체기)일째
+    // 단, 최소 7일째(오프셋 6일) 이후로 제한
     final int targetDay = (cycleLength - luteal).clamp(6, cycleLength);
 
+    // 각 주기별 배란일 및 가임기 계산
     for (int i = 0; i < sorted.length; i++) {
       final cycle = sorted[i];
       DateTime cycleOvulation;
 
-      // 만약 다음 기록이 있다면, 다음 기록의 시작일로부터 14일 전을 배란일로 계산 (실제 데이터 반영)
       if (i < sorted.length - 1) {
+        // 다음 주기가 있는 경우: 다음 시작일로부터 14일 전을 배란일로 계산
         final nextStart = sorted[i + 1].start;
         cycleOvulation = DateTime(
           nextStart.year,
@@ -130,13 +183,13 @@ class CalendarService {
           nextStart.day,
         ).subtract(const Duration(days: luteal));
 
-        // 배란일 하한선 적용: 최소 시작일로부터 7일째(6일 오프셋)
+        // 배란일 하한선 적용: 최소 시작일로부터 7일째
         final minOv = cycle.start.add(const Duration(days: 6));
         if (cycleOvulation.isBefore(minOv)) {
           cycleOvulation = minOv;
         }
       } else {
-        // 마지막 기록은 평균 주기(targetDay)를 사용하여 예측
+        // 마지막 주기: 평균 주기 길이를 사용하여 예측
         cycleOvulation = cycle.start.add(Duration(days: targetDay));
       }
 
@@ -145,7 +198,7 @@ class CalendarService {
         ovulationDay = cycleOvulation;
       }
 
-      // 가임기 계산: 배란일 기준 -4일 ~ +2일 (총 7일, 원래 설정으로 복원)
+      // 가임기: 배란일 기준 -4일 ~ +2일 (총 7일)
       final startWindow = cycleOvulation.subtract(const Duration(days: 4));
       for (int j = 0; j < 7; j++) {
         fertileWindowDays.add(
@@ -154,25 +207,26 @@ class CalendarService {
       }
     }
 
+    // 중복 제거 및 정렬
     fertileWindowDays = fertileWindowDays.toSet().toList()
       ..sort((a, b) => a.compareTo(b));
     ovulationDays = ovulationDays.toSet().toList()
       ..sort((a, b) => a.compareTo(b));
 
-    final currentCycle = sorted.last; // 가장 최근 주기
+    final currentCycle = sorted.last;
 
-    // 예측 세트: 다음 3회 주기의 예상 생리/가임/배란
-    var expectedPeriodDays = <DateTime>[]; // 예상 생리 구간 전체 날짜
-    var expectedFertileWindowDays = <DateTime>[]; // 예상 가임기 날짜
-    DateTime? expectedOvulationDay; // 가장 가까운 예상 배란일(다음 주기)
+    // 예상 생리일 및 가임기 계산 (다음 3개월)
+    var expectedPeriodDays = <DateTime>[];
+    var expectedFertileWindowDays = <DateTime>[];
+    DateTime? expectedOvulationDay;
 
-    // nextPeriodStart: 다음 생리 예상 시작일(현재 주기 시작 + cycleLength)
+    // 다음 생리 예상 시작일
     DateTime nextPeriodStart = currentCycle.start.add(
       Duration(days: cycleLength),
     );
 
     for (int month = 0; month < 3; month++) {
-      // 예상 생리일: 당일 하루만 표시
+      // 예상 생리일: 시작일만 표시
       expectedPeriodDays.add(
         DateTime(
           nextPeriodStart.year,
@@ -181,17 +235,13 @@ class CalendarService {
         ),
       );
 
-      // expectedOvulation(배란 예상일) 계산 방법:
-      // 1) cycleLength: 최근 간격 trimmed mean 후 15~45일로 제한
-      // 2) luteal: 14일 고정
-      // 3) targetDay: cycleLength - luteal, 단 최소 7일째(오프셋 6) 보장
-      // 4) expectedOvulation = nextPeriodStart + targetDay
+      // 예상 배란일 계산
       final expectedOvulation = nextPeriodStart.add(Duration(days: targetDay));
       if (month == 0) {
         expectedOvulationDay = expectedOvulation;
       }
 
-      // expectedStartWindow: 예측 배란일 기준 -4일 ~ +2일 (총 7일)
+      // 예상 가임기: 예상 배란일 기준 -4일 ~ +2일 (총 7일)
       final expectedStartWindow = expectedOvulation.subtract(
         const Duration(days: 4),
       );

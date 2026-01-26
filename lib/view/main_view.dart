@@ -16,6 +16,17 @@ class MainView extends StatefulWidget {
 class _MainViewState extends State<MainView> {
   final Set<int> _loadedIndices = {0};
 
+  @override
+  void initState() {
+    super.initState();
+    // 신규 진입 시 항상 캘린더(index 0)로 초기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<MainViewModel>().changeTab(0);
+      }
+    });
+  }
+
   NavTab _indexToTab(int index) {
     switch (index) {
       case 0:

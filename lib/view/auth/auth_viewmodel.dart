@@ -227,14 +227,14 @@ class AuthViewModel extends ChangeNotifier {
 
   /// 로그아웃 액션
   Future<void> signOut() async {
-    _state = const AuthLoading();
-    _isManualLoading = false;
+    _isManualLoading = true;
     notifyListeners();
 
     try {
       await _authService.signOut();
       // 리스너가 Unauthenticated로 변경함
     } catch (e) {
+      _isManualLoading = false;
       _state = AuthError('로그아웃 실패: $e');
       notifyListeners();
     }
@@ -242,7 +242,7 @@ class AuthViewModel extends ChangeNotifier {
 
   /// 회원 탈퇴 액션
   Future<bool> deleteAccount() async {
-    _state = const AuthLoading();
+    _isManualLoading = true;
     notifyListeners();
 
     try {
@@ -250,6 +250,7 @@ class AuthViewModel extends ChangeNotifier {
       // 리스너가 Unauthenticated로 변경함
       return true;
     } catch (e) {
+      _isManualLoading = false;
       _state = AuthError('계정 삭제 실패: $e');
       notifyListeners();
       return false;
@@ -280,8 +281,13 @@ class AuthViewModel extends ChangeNotifier {
 
       await _authService.saveUserToFirestore(newUserModel);
 
-      // 상태 업데이트 (isNewUser: false)
-      _state = Authenticated(currentState.user, newUserModel, isNewUser: false);
+      // 상태 업데이트 (showCompletionScreen: true로 설정하여 완료 화면 표시)
+      _state = Authenticated(
+        currentState.user,
+        newUserModel,
+        isNewUser: false,
+        showCompletionScreen: true,
+      );
       notifyListeners();
       return true;
     } catch (e) {
@@ -292,6 +298,20 @@ class AuthViewModel extends ChangeNotifier {
   
   // 기존 코드와의 호환성을 위해 유지 (Main에서 호출하는 경우 제거 예정이지만 View에서 쓸 수 있음)
   Future<bool> syncUserDataToFirestore() => convertToRegisteredUser();
+  
+  // 완료 화면 플래그 제거 (완료 화면에서 "시작하기" 버튼 클릭 시 호출)
+  void clearCompletionScreen() {
+    final currentState = _state;
+    if (currentState is Authenticated && currentState.showCompletionScreen) {
+      _state = Authenticated(
+        currentState.user,
+        currentState.userModel,
+        isNewUser: false,
+        showCompletionScreen: false,
+      );
+      notifyListeners();
+    }
+  }
   
   // 수동 로그인 플래그 - 리팩토링 후에는 상태로 관리되므로 더미 메서드 (컴파일 에러 방지)
   void resetManualLoginFlag() {}

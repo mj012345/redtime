@@ -21,8 +21,14 @@ class Authenticated extends AuthState {
   final User user;
   final UserModel userModel;
   final bool isNewUser;
+  final bool showCompletionScreen;
 
-  const Authenticated(this.user, this.userModel, {this.isNewUser = false});
+  const Authenticated(
+    this.user,
+    this.userModel, {
+    this.isNewUser = false,
+    this.showCompletionScreen = false,
+  });
 }
 
 class AuthError extends AuthState {

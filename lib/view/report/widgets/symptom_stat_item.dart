@@ -8,12 +8,14 @@ class SymptomStatItemData {
   final int count;
   final double ratio; // 0~1
   final Color color;
+  final List<String>? fullSymptomNames; // 툴팁용 전체 증상 리스트
 
   const SymptomStatItemData({
     required this.label,
     required this.count,
     required this.ratio,
     required this.color,
+    this.fullSymptomNames,
   });
 }
 
@@ -30,21 +32,28 @@ class SymptomStatItem extends StatelessWidget {
         : AppColors.primaryLight.withValues(alpha: 0.5);
     final barWidthRatio = data.ratio.clamp(0, 1).toDouble();
 
-    return Column(
+    final hasManySymptoms = (data.fullSymptomNames?.length ?? 0) > 3;
+    final tooltipMessage = data.fullSymptomNames?.join(', ');
+
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(
-              data.label,
-              style: AppTextStyles.body.copyWith(
-                fontSize: AppTextStyles.body.fontSize,
-                color: isExample
-                    ? AppColors.textDisabled
-                    : AppColors.textSecondary,
+            Expanded(
+              child: Text(
+                data.label,
+                style: AppTextStyles.body.copyWith(
+                  fontSize: AppTextStyles.body.fontSize,
+                  color: isExample
+                      ? AppColors.textDisabled
+                      : AppColors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: AppSpacing.sm),
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
@@ -94,5 +103,21 @@ class SymptomStatItem extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
       ],
     );
+
+    if (!isExample && hasManySymptoms && tooltipMessage != null) {
+      return Tooltip(
+        message: tooltipMessage,
+        triggerMode: TooltipTriggerMode.tap,
+        preferBelow: false,
+        decoration: BoxDecoration(
+          color: AppColors.textPrimary.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: AppTextStyles.caption.copyWith(color: Colors.white),
+        child: content,
+      );
+    }
+
+    return content;
   }
 }

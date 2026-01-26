@@ -52,9 +52,12 @@ class SymptomCalendarHeatmap extends StatefulWidget {
     required this.memos,
     required this.startDate,
     required this.endDate,
+    this.title,
     this.isExample = false,
     this.isActive = true,
   });
+
+  final String? title;
 
   @override
   State<SymptomCalendarHeatmap> createState() => _SymptomCalendarHeatmapState();
@@ -366,7 +369,16 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
     final lastSlashIndex = symptom.lastIndexOf('/');
     if (lastSlashIndex != -1) {
-      return symptom.substring(lastSlashIndex + 1); // 증상 이름만 반환
+      final category = symptom.substring(0, lastSlashIndex);
+      String name = symptom.substring(lastSlashIndex + 1); // 증상 이름만 반환
+
+      // 통증 카테고리인 경우 '통증' 접미사 추가 (이미 있는 경우는 제외)
+      if (category == '통증' && name != '좋음') {
+        if (!name.endsWith('통') && !name.endsWith('통증')) {
+          name = '$name 통증';
+        }
+      }
+      return name;
     }
     return symptom;
   }
@@ -427,17 +439,13 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         final categorySymptoms = <String>[];
 
         for (final symptom in symptoms) {
-          if (symptom == '메모') {
+          if (symptom == '메모' || !symptom.contains('/')) {
             continue;
           }
-          // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
           final lastSlashIndex = symptom.lastIndexOf('/');
-          if (lastSlashIndex != -1) {
-            final symptomCategory = symptom.substring(0, lastSlashIndex);
-            final symptomName = symptom.substring(lastSlashIndex + 1);
-            if (symptomCategory == categoryName) {
-              categorySymptoms.add(symptomName);
-            }
+          final symptomCategory = symptom.substring(0, lastSlashIndex);
+          if (symptomCategory == categoryName) {
+            categorySymptoms.add(_extractSymptomName(symptom));
           }
         }
 
@@ -462,14 +470,7 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
         if (symptom == '메모') {
           continue;
         }
-        if (symptom.contains('/')) {
-          final parts = symptom.split('/');
-          if (parts.length == 2) {
-            allSymptoms.add(parts[1]);
-          }
-        } else {
-          allSymptoms.add(symptom);
-        }
+        allSymptoms.add(_extractSymptomName(symptom));
       }
 
       if (isPeriodDay) {
@@ -748,27 +749,40 @@ class _SymptomCalendarHeatmapState extends State<SymptomCalendarHeatmap> {
     return TapRegion(
       onTapOutside: (event) => _hideTooltip(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 오늘 버튼
-          GestureDetector(
-            onTap: _scrollToToday,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: AppColors.textDisabled.withValues(alpha: 0.1),
-              ),
-              child: Text(
-                '오늘',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textPrimary.withValues(alpha: 0.9),
-                  fontSize: 11,
+          Row(
+            children: [
+              if (widget.title != null)
+                Text(
+                  widget.title!,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: AppTextStyles.title.fontSize,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              const Spacer(),
+              // 오늘 버튼
+              GestureDetector(
+                onTap: _scrollToToday,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.textDisabled.withValues(alpha: 0.1),
+                  ),
+                  child: Text(
+                    '오늘',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textPrimary.withValues(alpha: 0.9),
+                      fontSize: 11,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           // 히트맵 영역 (스크롤 감지 포함)
           NotificationListener<ScrollNotification>(
             onNotification: (notification) {

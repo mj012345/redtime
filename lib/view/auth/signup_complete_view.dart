@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 import 'package:red_time_app/theme/app_colors.dart';
 import 'package:red_time_app/theme/app_spacing.dart';
 import 'package:red_time_app/theme/app_text_styles.dart';
+import 'package:red_time_app/view/auth/auth_viewmodel.dart';
 
 /// 회원가입 완료 화면
 class SignupCompleteView extends StatelessWidget {
@@ -83,7 +85,8 @@ class SignupCompleteView extends StatelessWidget {
                   height: 50,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pushReplacementNamed('/calendar');
+                      // 완료 화면 플래그를 제거하면 상태 기반 네비게이션이 자동으로 MainView로 전환
+                      context.read<AuthViewModel>().clearCompletionScreen();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,

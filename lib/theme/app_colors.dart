@@ -35,7 +35,9 @@ class SymptomColors {
   static const Color goodSymptom = Color(0xFF62AD9E); // 좋음 증상 색상
   static const Color relationship = Color(0xFFFF80AB); // 관계(하트) 색상
   static const Color memo = Color(0xFFC9E1FD); // 메모 색상
-  static const Color frequentHigh = Color(0xFFF27676); // 가장 많이 기록된 r증상 색상
+  static const Color frequentHigh = Color(0xFFF27676); // 가장 많이 기록된 증상 색상
   static const Color frequentMid = Color(0xFFF59D6E); // 두 번째 많이 기록된 증상 색상
   static const Color frequentLow = Color(0xFFF8DC82); // 세 번째 많이 기록된 증상 색상
+  static const Color frequentFourth = Color(0xFF8CCBBD); // 네 번째 많이 기록된 증상 색상
+  static const Color frequentFifth = Color(0xFF89B9E0); // 다섯 번째 많이 기록된 증상 색상
 }

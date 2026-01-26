@@ -123,12 +123,15 @@ class MyApp extends StatelessWidget {
             final state = authVm.state;
             
             return switch (state) {
-              AuthUninitialized() || AuthLoading() => const SplashView(), // 스플래시 화면 연결
+              AuthUninitialized() || AuthLoading() => const SplashView(),
               Unauthenticated() => const LoginView(),
               AuthError(message: final msg) => LoginView(errorMessage: msg),
-              Authenticated(isNewUser: final isNewUser) => isNewUser
-                  ? const TermsAgreementView() 
-                  : const MainView(),
+              Authenticated(isNewUser: final isNewUser, showCompletionScreen: final showCompletion) => 
+                isNewUser
+                  ? const TermsAgreementView()
+                  : showCompletion
+                    ? const SignupCompleteView()
+                    : const MainView(),
             };
           },
         ),

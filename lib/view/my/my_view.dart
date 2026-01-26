@@ -49,10 +49,23 @@ class _MyViewState extends State<MyView> {
     );
 
     if (shouldSignOut == true && context.mounted) {
-      await authViewModel.signOut();
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true)
-            .pushNamedAndRemoveUntil('/', (route) => false);
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) =>
+            const Center(child: CircularProgressIndicator()),
+      );
+      
+      try {
+        await authViewModel.signOut();
+        if (rootNavigator.canPop()) {
+          rootNavigator.pop();
+        }
+      } catch (e) {
+        if (rootNavigator.canPop()) {
+          rootNavigator.pop();
+        }
       }
     }
   }
@@ -73,6 +86,9 @@ class _MyViewState extends State<MyView> {
     );
 
     if (shouldDelete == true && context.mounted) {
+      // 미리 네비게이터를 가져와서 언마운트 후에도 팝 할 수 있도록 함
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -83,16 +99,12 @@ class _MyViewState extends State<MyView> {
       try {
         final success = await authViewModel.deleteAccount();
 
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
+        // 다이얼로그 닫기 (rootNavigator 사용)
+        if (rootNavigator.canPop()) {
+          rootNavigator.pop();
         }
 
-        if (success) {
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true)
-                .pushNamedAndRemoveUntil('/', (route) => false);
-          }
-        } else {
+        if (!success) {
           if (context.mounted) {
             final errorMessage = authViewModel.errorMessage ?? '계정 삭제에 실패했습니다.';
             ScaffoldMessenger.of(context).showSnackBar(
@@ -104,9 +116,13 @@ class _MyViewState extends State<MyView> {
             );
           }
         }
+        // 성공 시에는 AuthViewModel의 상태 변화(Unauthenticated)에 의해
+        // main.dart의 Consumer가 자동으로 LoginView로 전환함
       } catch (e) {
+        if (rootNavigator.canPop()) {
+          rootNavigator.pop();
+        }
         if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
           final errorMessage =
               authViewModel.errorMessage ?? '계정 삭제 중 오류가 발생했습니다.';
           ScaffoldMessenger.of(context).showSnackBar(

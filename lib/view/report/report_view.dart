@@ -153,41 +153,70 @@ class ReportView extends StatelessWidget {
       return [];
     }
 
-    // 기록 횟수 기준으로 정렬 (내림차순)
-    final sortedSymptoms = symptomCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    // 통계용 증상 이름 변환 도우미 (카테고리 제거 및 통증 추가)
+    String formatSymptom(String fullKey) {
+      String label = fullKey;
+      final lastSlashIndex = label.lastIndexOf('/');
+      if (lastSlashIndex != -1) {
+        final category = label.substring(0, lastSlashIndex);
+        label = label.substring(lastSlashIndex + 1);
+        if (category == '통증' && label != '좋음') {
+          if (!label.endsWith('통') && !label.endsWith('통증')) {
+            label = '$label 통증';
+          }
+        }
+      }
+      return label;
+    }
 
-    // 상위 3개만 선택
-    final topSymptoms = sortedSymptoms.take(3).toList();
+    // 기록 횟수별로 증상 그룹화
+    final groupedByCount = <int, List<String>>{};
+    for (final entry in symptomCounts.entries) {
+      groupedByCount.putIfAbsent(entry.value, () => []).add(entry.key);
+    }
 
-    // 색상 정의 (기존 색상 사용)
+    // 횟수 기준 정렬 (내림차순)
+    final sortedCounts = groupedByCount.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    // 상위 5개 그룹만 선택
+    final topCounts = sortedCounts.take(5).toList();
+
+    // 색상 정의
     final colors = [
       SymptomColors.frequentHigh,
       SymptomColors.frequentMid,
       SymptomColors.frequentLow,
+      SymptomColors.frequentFourth,
+      SymptomColors.frequentFifth,
     ];
 
     // SymptomStatItemData 리스트 생성
     final result = <SymptomStatItemData>[];
-    for (int i = 0; i < topSymptoms.length; i++) {
-      final entry = topSymptoms[i];
-      final count = entry.value;
-      final ratio = totalRecordedDays > 0 ? count / totalRecordedDays : 0.0;
-
-      // "카테고리/증상" 형식에서 증상 이름만 추출 (카테고리 이름 제거)
-      String symptomLabel = entry.key;
-      // 카테고리 이름에 슬래시가 포함될 수 있으므로 마지막 슬래시를 기준으로 분리
-      final lastSlashIndex = symptomLabel.lastIndexOf('/');
-      if (lastSlashIndex != -1) {
-        symptomLabel = symptomLabel.substring(lastSlashIndex + 1); // 증상 이름만 사용
+    for (int i = 0; i < topCounts.length; i++) {
+      final count = topCounts[i];
+      final rawSymptoms = groupedByCount[count]!;
+      
+      // 해당 횟수의 증상들을 포맷팅하여 쉼표로 연결
+      final formattedSymptoms = rawSymptoms.map(formatSymptom).toList();
+      
+      String mergedLabel;
+      if (formattedSymptoms.length > 3) {
+        final top3 = formattedSymptoms.take(3).join(', ');
+        mergedLabel = '$top3 외 ${formattedSymptoms.length - 3}개';
+      } else {
+        mergedLabel = formattedSymptoms.join(', ');
       }
+
+      final ratio = totalRecordedDays > 0 ? count / totalRecordedDays : 0.0;
 
       result.add(
         SymptomStatItemData(
-          label: symptomLabel,
+          label: mergedLabel,
           count: count,
           ratio: ratio.clamp(0.0, 1.0),
           color: colors[i % colors.length],
+          fullSymptomNames: formattedSymptoms,
         ),
       );
     }
@@ -493,6 +522,18 @@ class ReportView extends StatelessWidget {
                                       ratio: 0.25,
                                       color: AppColors.textDisabled,
                                     ),
+                                    SymptomStatItemData(
+                                      label: '뾰루지',
+                                      count: 4,
+                                      ratio: 0.2,
+                                      color: AppColors.textDisabled,
+                                    ),
+                                    SymptomStatItemData(
+                                      label: '우울',
+                                      count: 3,
+                                      ratio: 0.15,
+                                      color: AppColors.textDisabled,
+                                    ),
                                   ]) ...[
                                     SymptomStatItem(data: item),
                                     const SizedBox(height: AppSpacing.sm),
@@ -571,14 +612,7 @@ class ReportView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '증상 추적',
-                          style: AppTextStyles.body.copyWith(
-                            fontSize: AppTextStyles.title.fontSize,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
+
                         // 데이터 확인: 증상 데이터나 주기 데이터가 있는지 확인
                         Builder(
                           builder: (context) {
@@ -588,6 +622,7 @@ class ReportView extends StatelessWidget {
                               children: [
                                 // 증상 캘린더 히트맵
                                 SymptomCalendarHeatmap(
+                                  title: '증상 추적',
                                   symptomData: hasData
                                       ? symptomSelections
                                       : _generateExampleSymptomData(vm.today),
@@ -612,9 +647,13 @@ class ReportView extends StatelessWidget {
                                   isExample: !hasData,
                                   isActive: isActive,
                                 ),
-                                // 레이어 문구 (반투명)
+                                // 레이어 문구 (반투명) - 타이틀만 제외하고 나머지 영역 덮음
                                 if (!hasData)
-                                  Positioned.fill(
+                                  Positioned(
+                                    top: 32, // 타이틀(20) + 간격(12) = 32
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: AppColors.surface.withValues(

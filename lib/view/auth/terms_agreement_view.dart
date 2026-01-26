@@ -258,11 +258,8 @@ class _TermsAgreementViewState extends State<TermsAgreementView> {
       });
 
       if (success) {
-        // 성공 시 회원가입 완료 화면으로 이동
-        // main.dart의 switch문이 상태 변경을 감지하여 자동으로 화면을 바꿀 수도 있지만,
-        // 완료 화면을 보여주고 싶다면 명시적 네비게이션이 필요함.
-        // 여기서는 완료 화면으로 이동.
-        Navigator.of(context).pushReplacementNamed('/signup-complete');
+        // 성공 시 상태가 자동으로 SignupCompleteView로 전환됨
+        // (AuthViewModel에서 showCompletionScreen: true로 설정)
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
