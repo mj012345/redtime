@@ -135,23 +135,16 @@ class CalendarService {
     // - 15~45일 범위로 제한 (비현실적인 짧거나 긴 주기 배제)
     int cycleLength;
     if (intervals.isNotEmpty) {
-      // 디버그: 주기 패턴 출력
-      print('📊 [주기 분석] 전체 간격: $intervals');
-      
+
       // 최근 6개 간격만 사용 (약 6개월치 데이터)
       final recentIntervals = intervals.length > 6
           ? intervals.sublist(intervals.length - 6)
           : intervals;
       
-      print('📊 [주기 분석] 최근 6개 간격: $recentIntervals');
-      
       final trimmed = _trimmedMean(recentIntervals);
       cycleLength = trimmed == 0 ? 28 : trimmed;
-      
-      print('📊 [주기 분석] 계산된 주기 길이: $cycleLength일');
     } else {
       cycleLength = 28;
-      print('📊 [주기 분석] 기록 없음, 기본값 28일 사용');
     }
     cycleLength = cycleLength.clamp(15, 45);
 
