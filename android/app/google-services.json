@@ -7,56 +7,28 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:662879661830:android:311b6f584a5ab4034d7887",
-        "android_client_info": {
-          "package_name": "com.example.red_time_app"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "662879661830-2k26iilee07e3samth81159mooc6lq87.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.red_time_app",
-            "certificate_hash": "eeb6e829de0ab99c5036519e7f44f4514c617ced"
-          }
-        },
-        {
-          "client_id": "662879661830-mqqathnr9l0qkndjj58id3to0fnsp5hv.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCuqEebc0kP8fngr1oC2DgHPlUdbDRV-Wo"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "662879661830-mqqathnr9l0qkndjj58id3to0fnsp5hv.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "662879661830-d5mc6u73rutn1c1uhg08e91uvf7cgvdv.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.jeongminji.redtime"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:662879661830:android:1897571eba3d289f4d7887",
         "android_client_info": {
           "package_name": "com.jeongminji.redtime"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "662879661830-2igcj5kule9b5qdp2r0rv7rblo15tdje.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jeongminji.redtime",
+            "certificate_hash": "5cefa6d52b2c993fb285ee660101785e3bef4f88"
+          }
+        },
+        {
+          "client_id": "662879661830-b9o6b4jv8m3686525neub950rssud2o8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jeongminji.redtime",
+            "certificate_hash": "28f1a0e7ebba67d95de5a2c7361b6f93e95ab0bc"
+          }
+        },
         {
           "client_id": "662879661830-hci2l8bn96gpjd3vnmrd4j1j04dflon3.apps.googleusercontent.com",
           "client_type": 1,
